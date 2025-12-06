@@ -1,0 +1,117 @@
+apiVersion: skaffold/v3
+kind: Config
+metadata:
+  name: app
+build:
+  platforms: ['linux/amd64', 'linux/arm64']
+  artifacts:
+    # image tags are relative; to specify an image repo (e.g. GCR), you
+    # must provide a "default repo" using one of the methods described
+    # here:
+    # https://skaffold.dev/docs/concepts/#image-repository-handling
+    - image: emailservice
+      context: src/emailservice
+    - image: productcatalogservice
+      context: src/productcatalogservice
+    - image: recommendationservice
+      context: src/recommendationservice
+    - image: shoppingassistantservice
+      context: src/shoppingassistantservice
+    - image: chatbotservice
+      context: .
+      docker:
+        dockerfile: src/chatbotservice/Dockerfile
+    - image: shippingservice
+      context: src/shippingservice
+    - image: checkoutservice
+      context: src/checkoutservice
+    - image: paymentservice
+      context: src/paymentservice
+    - image: currencyservice
+      context: src/currencyservice
+    - image: cartservice
+      context: src/cartservice/src
+      docker:
+        dockerfile: Dockerfile
+    - image: frontend
+      context: src/frontend
+    - image: adservice
+      context: src/adservice
+    - image: tryonservice
+      context: src/tryonservice
+    - image: mcp_service
+      context: .
+      docker:
+        dockerfile: src/mcp_service/Dockerfile
+    - image: peau_agent
+      context: src/peau_agent
+    - image: video_generation
+      context: .
+      docker:
+        dockerfile: src/video_generation/Dockerfile
+  tagPolicy:
+    gitCommit: {}
+  local:
+    useDockerCLI: true
+    push: false
+manifests:
+  kustomize:
+    paths:
+      - kubernetes-manifests
+deploy:
+  kubectl: {}
+# "gcb" profile allows building and pushing the images
+# on Google Container Builder without requiring docker
+# installed on the developer machine. However, note that
+# since GCB does not cache the builds, each build will
+# start from scratch and therefore take a long time.
+#
+# This is not used by default. To use it, run:
+#     skaffold run -p gcb
+profiles:
+  - name: gcb
+    build:
+      googleCloudBuild:
+        diskSizeGb: 300
+        machineType: N1_HIGHCPU_32
+        timeout: 4000s
+  - name: debug
+    activation:
+      - command: debug
+    patches:
+      - op: replace
+        path: /build/artifacts/7/docker/dockerfile
+        value: Dockerfile.debug
+  - name: network-policies
+    patches:
+      - op: add
+        path: /manifests/kustomize/paths/1
+        value: kustomize/components/network-policies
+---
+apiVersion: skaffold/v3
+kind: Config
+metadata:
+  name: loadgenerator
+requires:
+  - configs:
+      - app
+build:
+  platforms: ['linux/amd64', 'linux/arm64']
+  artifacts:
+    - image: loadgenerator
+      context: src/loadgenerator
+  local:
+    useDockerCLI: true
+    useBuildkit: true
+manifests:
+  rawYaml:
+    - ./kubernetes-manifests/loadgenerator.yaml
+deploy:
+  kubectl: {}
+profiles:
+  - name: gcb
+    build:
+      googleCloudBuild:
+        diskSizeGb: 300
+        machineType: N1_HIGHCPU_32
+        timeout: 4000s
