@@ -1,4 +1,4 @@
-# Ad Service - Python Implementation
+# Cart Service - Python Implementation
 
 FROM --platform=$BUILDPLATFORM python:3.12.8-alpine@sha256:54bec49592c8455de8d5983d984efff76b6417a6af9b5dcc8d0237bf6ad3bd20 AS base
 
@@ -23,7 +23,7 @@ RUN apk update \
     && apk add --no-cache libstdc++ \
     && rm -rf /var/cache/apk/*
 
-WORKDIR /adservice
+WORKDIR /cartservice
 
 # Copy installed packages from builder
 COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
@@ -31,5 +31,5 @@ COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
 # Copy application files
 COPY . .
 
-EXPOSE 9555
-ENTRYPOINT ["python", "ad_server.py"]
+EXPOSE 7070
+ENTRYPOINT ["python", "cart_server.py"]
