@@ -198,9 +198,9 @@ For an e-commerce LLM application, we care about:
 - **Trigger:** Invalid product rate > 2% over 10 minutes
 - **Severity:** High (directly impacts user trust and potential revenue loss)
 - **Action:** Create incident with:
-                - Sample hallucinated responses
-                - Prompt patterns that caused hallucination
-                - Suggested prompt engineering fixes
+                                                                - Sample hallucinated responses
+                                                                - Prompt patterns that caused hallucination
+                                                                - Suggested prompt engineering fixes
 - **Runbook:** Check RAG corpus freshness, verify product catalog sync, review recent prompt changes
 
 ### Rule 2: Prompt Injection / Adversarial Input Detection
@@ -212,9 +212,9 @@ For an e-commerce LLM application, we care about:
 - **Trigger:** Injection score > 0.7 OR > 5 suspicious requests from same session in 1 minute
 - **Severity:** Critical (security risk)
 - **Action:** 
-                - Immediate alert to security channel
-                - Auto-create security case with full request context
-                - Log session ID for potential blocking
+                                                                - Immediate alert to security channel
+                                                                - Auto-create security case with full request context
+                                                                - Log session ID for potential blocking
 - **Context:** User session history, IP geolocation, prompt content (redacted PII)
 
 ### Rule 3: Cost-Per-Conversion Anomaly (Business Impact)
@@ -223,15 +223,15 @@ For an e-commerce LLM application, we care about:
 
 - **Signal:** Composite metric `llm.cost_per_conversion = total_token_cost / successful_checkouts`
 - **Implementation:** 
-                - Track token costs per chatbot session
-                - Correlate with checkout events via session ID
-                - Calculate rolling cost-per-conversion
+                                                                - Track token costs per chatbot session
+                                                                - Correlate with checkout events via session ID
+                                                                - Calculate rolling cost-per-conversion
 - **Trigger:** Cost-per-conversion exceeds 7-day moving average by 100%
 - **Severity:** Medium (financial impact)
 - **Action:** Create case with:
-                - Breakdown by service (chatbot vs PEAU agent)
-                - Most expensive conversation patterns
-                - AI-generated optimization suggestions from Observability Insights Service
+                                                                - Breakdown by service (chatbot vs PEAU agent)
+                                                                - Most expensive conversation patterns
+                                                                - AI-generated optimization suggestions from Observability Insights Service
 - **Runbook:** Review prompt lengths, check for conversation loops, evaluate model tier appropriateness
 
 ### Rule 4: Response Quality Degradation (User Experience)
@@ -240,16 +240,16 @@ For an e-commerce LLM application, we care about:
 
 - **Signal:** Custom metric `llm.response.quality_score` (0-1)
 - **Implementation:**
-                - Measure response coherence (via lightweight classifier)
-                - Track response length anomalies (too short = unhelpful, too long = rambling)
-                - Monitor product ID extraction success rate
-                - User engagement signals (did user click recommended product?)
+                                                                - Measure response coherence (via lightweight classifier)
+                                                                - Track response length anomalies (too short = unhelpful, too long = rambling)
+                                                                - Monitor product ID extraction success rate
+                                                                - User engagement signals (did user click recommended product?)
 - **Trigger:** Quality score drops below 0.6 for > 5 minutes OR sudden 20% drop
 - **Severity:** High
 - **Action:** Create incident with:
-                - Sample degraded responses
-                - Correlation with model latency (is the model being rate-limited?)
-                - Recent deployment changes
+                                                                - Sample degraded responses
+                                                                - Correlation with model latency (is the model being rate-limited?)
+                                                                - Recent deployment changes
 - **Runbook:** Check Vertex AI quotas, verify model endpoint health, review context window usage
 
 ### Rule 5: Predictive Capacity Alert (AI-Powered)
@@ -258,15 +258,15 @@ For an e-commerce LLM application, we care about:
 
 - **Signal:** Composite from `llm.request.rate`, `llm.latency.p99`, `llm.error.rate`
 - **Implementation:**
-                - Observability Insights Service analyzes 24h traffic patterns
-                - Gemini predicts if current trajectory will hit rate limits or cause degradation
-                - Generates confidence-scored predictions
+                                                                - Observability Insights Service analyzes 24h traffic patterns
+                                                                - Gemini predicts if current trajectory will hit rate limits or cause degradation
+                                                                - Generates confidence-scored predictions
 - **Trigger:** Prediction confidence > 80% for failure within next 2 hours
 - **Severity:** Warning → escalates to High if not acknowledged
 - **Action:** 
-                - Proactive alert with predicted failure time
-                - Auto-generated scaling recommendations
-                - Historical pattern comparison
+                                                                - Proactive alert with predicted failure time
+                                                                - Auto-generated scaling recommendations
+                                                                - Historical pattern comparison
 - **Context:** Traffic forecast, current resource utilization, similar past incidents
 
 ---
@@ -884,27 +884,27 @@ if __name__ == "__main__":
 
 1. **Application Health Overview**
 
-                        - Service map with LLM services highlighted
-                        - Overall latency, errors, throughput (RED metrics)
-                        - SLO status widgets
+                                                                                                - Service map with LLM services highlighted
+                                                                                                - Overall latency, errors, throughput (RED metrics)
+                                                                                                - SLO status widgets
 
 2. **LLM Observability Panel**
 
-                        - Token usage by service (input vs output)
-                        - Cost tracking over time
-                        - Model performance comparison
-                        - Prompt/response latency distribution
+                                                                                                - Token usage by service (input vs output)
+                                                                                                - Cost tracking over time
+                                                                                                - Model performance comparison
+                                                                                                - Prompt/response latency distribution
 
 3. **AI Insights Panel**
 
-                        - Error predictions from Observability Insights Service
-                        - Cost optimization recommendations
-                        - Health summary (Gemini-generated)
+                                                                                                - Error predictions from Observability Insights Service
+                                                                                                - Cost optimization recommendations
+                                                                                                - Health summary (Gemini-generated)
 
 4. **Detection Rules Status**
 
-                        - Monitor status for all 3 rules
-                        - Recent incidents/cases timeline
+                                                                                                - Monitor status for all 3 rules
+                                                                                                - Recent incidents/cases timeline
 
 ---
 
