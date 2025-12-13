@@ -176,17 +176,17 @@ def serve():
 if __name__ == '__main__':
     logger.info("CartService starting.")
 
-    # Initialize profiling
-    if os.environ.get("DISABLE_PROFILER"):
-        logger.info("Profiler disabled.")
-    else:
-        logger.info("Profiler enabled.")
-        init_profiling()
+    # # Initialize profiling
+    # if os.environ.get("DISABLE_PROFILER"):
+    #     logger.info("Profiler disabled.")
+    # else:
+    #     logger.info("Profiler enabled.")
+    #     init_profiling()
 
-    # Initialize tracing
-    if os.environ.get("DISABLE_TRACING"):
-        logger.info("Tracing disabled.")
-    else:
-        init_tracing()
+    # # Initialize tracing
+    # if os.environ.get("DISABLE_TRACING"):
+    #     logger.info("Tracing disabled.")
+    # else:
+    #     init_tracing()
 
     serve()
