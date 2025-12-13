@@ -174,7 +174,6 @@ Final Day:      🤝 FINAL SYNC (Both together)
 - [ ] Enable APM, logs, LLM Observability in agent config
 - [ ] Verify connection to Datadog UI
 - [ ] Create shared `.env.datadog` file for team
-
 ```bash
 # .env.datadog (shared config)
 DD_API_KEY=<your-key>
@@ -184,6 +183,7 @@ DD_SERVICE=v-commerce
 DD_LLMOBS_ENABLED=1
 DD_LLMOBS_AGENTLESS_ENABLED=1
 ```
+
 
 ---
 
