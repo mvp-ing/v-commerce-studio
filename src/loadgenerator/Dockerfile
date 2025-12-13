@@ -1,22 +1,16 @@
- 
-
-FROM --platform=$BUILDPLATFORM python:3.12.8-alpine@sha256:54bec49592c8455de8d5983d984efff76b6417a6af9b5dcc8d0237bf6ad3bd20 AS base
+FROM python:3.12-slim AS base
 
 FROM base AS builder
 
-RUN apk update \
-    && apk add --no-cache wget g++ linux-headers \
-    && rm -rf /var/cache/apk/*
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends wget g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
-RUN pip install --prefix="/install" -r requirements.txt
+RUN pip install --prefix="/install" --no-cache-dir -r requirements.txt
 
 FROM base
-
-RUN apk update \
-    && apk add --no-cache libstdc++ \
-    && rm -rf /var/cache/apk/*
 
 WORKDIR /loadgen
 
