@@ -70,7 +70,7 @@ todos: []
 
 | A3 | Instrument Python supporting services (adservice, cartservice, emailservice, recommendationservice, tryonservice, video_generation, mcp_service) | ✅ Complete |
 
-| A4 | Instrument Node.js services (currencyservice, paymentservice) with dd-trace-js | ⬜ Pending |
+| A4 | Instrument Node.js services (currencyservice, paymentservice) with dd-trace-js | ✅ Complete |
 
 | A5 | Configure 5 detection rules in Datadog (hallucination, injection, cost-per-conversion, quality, predictive) | ⬜ Pending |
 
