@@ -20,6 +20,11 @@ from langchain_google_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
 from ddtrace import tracer, patch_all
 from ddtrace.llmobs import LLMObs
 
+# Configure Datadog tracer with service name
+tracer.configure(
+    service=os.getenv("DD_SERVICE", "shopping-assistant-service"),
+)
+
 # Initialize Datadog tracing (auto-patches Flask, LangChain)
 patch_all()
 
