@@ -76,7 +76,7 @@ todos: []
 
 | A6 | Build Datadog dashboard with LLM metrics, health overview, AI insights panels | ✅ Complete |
 
-| A7 | Set up SLOs, incident management, and runbooks in Datadog | ⬜ Pending |
+| A7 | Set up SLOs, incident management, and runbooks in Datadog | ✅ Complete |
 
 | A8 | Create traffic-generator.py script to trigger all detection rules | ⬜ Pending |
 

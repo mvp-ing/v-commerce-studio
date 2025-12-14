@@ -1,0 +1,145 @@
+[
+  {
+    "name": "[V-Commerce] Frontend Service Availability",
+    "id": "2318aa6124d359e7a8214c4725afb488",
+    "tags": [
+      "env:hackathon",
+      "service:frontend",
+      "tier:1",
+      "team:platform",
+      "category:availability"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Frontend P95 Latency < 1s",
+    "id": "3f936fa796265f71874a3cda51bb0c5f",
+    "tags": [
+      "env:hackathon",
+      "service:frontend",
+      "tier:1",
+      "team:platform",
+      "category:latency"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Checkout Success Rate",
+    "id": "e25fbbcd40915710b95df46dc95caae3",
+    "tags": [
+      "env:hackathon",
+      "service:checkoutservice",
+      "tier:1",
+      "team:commerce",
+      "category:success_rate"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Payment Transaction Success Rate",
+    "id": "04a2e737a45b52cfba0550882af9d9c2",
+    "tags": [
+      "env:hackathon",
+      "service:paymentservice",
+      "tier:1",
+      "team:commerce",
+      "category:success_rate"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Chatbot LLM Availability",
+    "id": "98888dc1b0b0536c8a3e4987c7bbcf3e",
+    "tags": [
+      "env:hackathon",
+      "service:chatbotservice",
+      "tier:2",
+      "team:llm",
+      "category:availability"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Chatbot LLM Response Time P95 < 5s",
+    "id": "227464855b9b5202867023434c4981de",
+    "tags": [
+      "env:hackathon",
+      "service:chatbotservice",
+      "tier:2",
+      "team:llm",
+      "category:latency"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Product Catalog Search Latency P95 < 500ms",
+    "id": "70b33c1ad7165edb9529fc7d030fff30",
+    "tags": [
+      "env:hackathon",
+      "service:productcatalogservice",
+      "tier:2",
+      "team:platform",
+      "category:latency"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Cart Operation Success Rate",
+    "id": "9ea9563a8d615a19a8973489553e1c20",
+    "tags": [
+      "env:hackathon",
+      "service:cartservice",
+      "tier:2",
+      "team:commerce",
+      "category:success_rate"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Recommendation Service Availability",
+    "id": "753070376c45524e827db68ac1cfcba0",
+    "tags": [
+      "env:hackathon",
+      "service:recommendationservice",
+      "tier:3",
+      "team:platform",
+      "category:availability"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Ad Service Availability",
+    "id": "6427abdc054c51b3847be0866527226e",
+    "tags": [
+      "env:hackathon",
+      "service:adservice",
+      "tier:3",
+      "team:platform",
+      "category:availability"
+    ]
+  },
+  {
+    "name": "[V-Commerce] Email Delivery Success Rate",
+    "id": "47fe960c1af35e2394ca272d36d4b585",
+    "tags": [
+      "env:hackathon",
+      "service:emailservice",
+      "tier:3",
+      "team:platform",
+      "category:success_rate"
+    ]
+  },
+  {
+    "name": "[V-Commerce] LLM Response Quality Score",
+    "id": "2676baf6aec35adc8e3fe033890c3388",
+    "tags": [
+      "env:hackathon",
+      "service:v-commerce-llm",
+      "tier:2",
+      "team:llm",
+      "category:quality"
+    ]
+  },
+  {
+    "name": "[V-Commerce] LLM Cost Per Conversion",
+    "id": "aa845c5fcc265655bdf40fd9bf72be58",
+    "tags": [
+      "env:hackathon",
+      "service:v-commerce-llm",
+      "tier:2",
+      "team:finops",
+      "category:cost"
+    ]
+  }
+]

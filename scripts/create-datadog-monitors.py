@@ -32,8 +32,8 @@ import sys
 from typing import Dict, Any, List
 
 # Datadog API configuration
-DD_API_KEY = os.getenv("DD_API_KEY", "993d057d0fd9c3036834406cf70df93a")
-DD_APP_KEY = os.getenv("DD_APP_KEY", "0b0e22ba6458a60b13d8221c3c422eae88b47d89")
+DD_API_KEY = os.getenv("DD_API_KEY", "")
+DD_APP_KEY = os.getenv("DD_APP_KEY", "")
 DD_SITE = os.getenv("DD_SITE", "us5.datadoghq.com")
 
 API_BASE_URL = f"https://{DD_SITE}/api/v1"

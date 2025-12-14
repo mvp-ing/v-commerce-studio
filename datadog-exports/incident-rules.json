@@ -1,0 +1,351 @@
+{
+  "description": "V-Commerce Datadog Incident Management Rules Configuration",
+  "version": "1.0.0",
+  "last_updated": "2024-12-14",
+  "incident_rules": [
+    {
+      "name": "[V-Commerce] Critical LLM Security Incident",
+      "enabled": true,
+      "description": "Automatically creates SEV-1 incident when prompt injection is detected",
+      "trigger": {
+        "type": "monitor",
+        "monitor_tags": ["detection_rule:injection"],
+        "condition": "alert"
+      },
+      "incident_settings": {
+        "title_template": "Security: Prompt Injection Detected - {{monitor.name}}",
+        "severity": "SEV-1",
+        "state": "active",
+        "commander": "@security-oncall",
+        "notifications": [
+          {
+            "type": "slack",
+            "channel": "#security-alerts"
+          },
+          {
+            "type": "pagerduty",
+            "service": "security-oncall"
+          }
+        ],
+        "fields": {
+          "root_cause": {
+            "type": "text",
+            "value": "Security threat detected - prompt injection attempt"
+          },
+          "customer_impact": {
+            "type": "text",
+            "value": "Potential data exposure risk"
+          },
+          "services_affected": {
+            "type": "multiselect",
+            "value": [
+              "chatbotservice",
+              "shoppingassistantservice",
+              "peau_agent"
+            ]
+          }
+        },
+        "runbook_link": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#2-prompt-injection-detection-runbook"
+      }
+    },
+    {
+      "name": "[V-Commerce] LLM Quality Degradation Incident",
+      "enabled": true,
+      "description": "Creates SEV-2 incident for hallucination or quality degradation",
+      "trigger": {
+        "type": "monitor",
+        "monitor_tags": [
+          "detection_rule:hallucination",
+          "detection_rule:quality"
+        ],
+        "condition": "alert"
+      },
+      "incident_settings": {
+        "title_template": "LLM Quality: Response Degradation - {{monitor.name}}",
+        "severity": "SEV-2",
+        "state": "active",
+        "commander": "@llm-oncall",
+        "notifications": [
+          {
+            "type": "slack",
+            "channel": "#llm-alerts"
+          }
+        ],
+        "fields": {
+          "root_cause": {
+            "type": "text",
+            "value": "LLM quality degradation detected"
+          },
+          "customer_impact": {
+            "type": "text",
+            "value": "Poor user experience, potential conversion loss"
+          },
+          "services_affected": {
+            "type": "multiselect",
+            "value": ["chatbotservice", "shoppingassistantservice"]
+          }
+        },
+        "runbook_link": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#1-hallucination-detection-runbook"
+      }
+    },
+    {
+      "name": "[V-Commerce] Tier 1 Service Incident",
+      "enabled": true,
+      "description": "Creates SEV-1 incident when any Tier 1 service has issues",
+      "trigger": {
+        "type": "monitor",
+        "monitor_tags": ["tier:1"],
+        "condition": "alert"
+      },
+      "incident_settings": {
+        "title_template": "Critical: Tier 1 Service Degradation - {{monitor.name}}",
+        "severity": "SEV-1",
+        "state": "active",
+        "commander": "@platform-oncall",
+        "notifications": [
+          {
+            "type": "pagerduty",
+            "service": "platform-oncall"
+          },
+          {
+            "type": "slack",
+            "channel": "#critical-incidents"
+          }
+        ],
+        "fields": {
+          "root_cause": {
+            "type": "text",
+            "value": "To be determined"
+          },
+          "customer_impact": {
+            "type": "text",
+            "value": "Revenue-impacting service degradation"
+          }
+        }
+      }
+    },
+    {
+      "name": "[V-Commerce] Predictive Capacity Incident",
+      "enabled": true,
+      "description": "Creates SEV-2 incident when AI predicts failure within 2 hours",
+      "trigger": {
+        "type": "monitor",
+        "monitor_tags": ["detection_rule:predictive"],
+        "condition": "alert"
+      },
+      "incident_settings": {
+        "title_template": "Predictive: Potential Failure in 2 Hours",
+        "severity": "SEV-2",
+        "state": "active",
+        "commander": "@sre-oncall",
+        "notifications": [
+          {
+            "type": "slack",
+            "channel": "#sre-alerts"
+          }
+        ],
+        "fields": {
+          "root_cause": {
+            "type": "text",
+            "value": "AI-predicted capacity issue"
+          },
+          "customer_impact": {
+            "type": "text",
+            "value": "Potential future degradation - proactive alert"
+          },
+          "timeline": {
+            "type": "text",
+            "value": "Predicted failure within 2 hours"
+          }
+        },
+        "runbook_link": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#5-predictive-capacity-alert-runbook"
+      }
+    },
+    {
+      "name": "[V-Commerce] Cost Anomaly Incident",
+      "enabled": true,
+      "description": "Creates SEV-3 incident for LLM cost-per-conversion anomalies",
+      "trigger": {
+        "type": "monitor",
+        "monitor_tags": ["detection_rule:cost_anomaly"],
+        "condition": "alert"
+      },
+      "incident_settings": {
+        "title_template": "FinOps: LLM Cost Anomaly Detected",
+        "severity": "SEV-3",
+        "state": "active",
+        "commander": "@finops-oncall",
+        "notifications": [
+          {
+            "type": "slack",
+            "channel": "#finops-alerts"
+          }
+        ],
+        "fields": {
+          "root_cause": {
+            "type": "text",
+            "value": "LLM cost-per-conversion exceeds threshold"
+          },
+          "customer_impact": {
+            "type": "text",
+            "value": "No immediate customer impact - financial impact"
+          }
+        },
+        "runbook_link": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#3-cost-per-conversion-anomaly-runbook"
+      }
+    }
+  ],
+  "severity_definitions": {
+    "SEV-1": {
+      "name": "Critical",
+      "description": "Revenue or security impact requiring immediate response",
+      "response_time": "5 minutes",
+      "examples": [
+        "Checkout down",
+        "Prompt injection detected",
+        "Payment failures"
+      ]
+    },
+    "SEV-2": {
+      "name": "High",
+      "description": "Significant user impact requiring prompt response",
+      "response_time": "15 minutes",
+      "examples": [
+        "LLM quality degradation",
+        "High error rate",
+        "Capacity predictions"
+      ]
+    },
+    "SEV-3": {
+      "name": "Medium",
+      "description": "Moderate impact that can be addressed during business hours",
+      "response_time": "1 hour",
+      "examples": [
+        "Cost anomalies",
+        "Slow responses",
+        "Minor service degradation"
+      ]
+    },
+    "SEV-4": {
+      "name": "Low",
+      "description": "Minor issues that don't require immediate attention",
+      "response_time": "4 hours",
+      "examples": ["Non-critical service issues", "Performance optimizations"]
+    }
+  },
+  "on_call_teams": {
+    "security-oncall": {
+      "name": "Security Team",
+      "slack_channel": "#security-alerts",
+      "pagerduty_service": "security-oncall",
+      "responsibilities": [
+        "Injection detection",
+        "Data protection",
+        "Security incidents"
+      ]
+    },
+    "llm-oncall": {
+      "name": "LLM Platform Team",
+      "slack_channel": "#llm-alerts",
+      "pagerduty_service": "llm-oncall",
+      "responsibilities": [
+        "LLM services",
+        "Quality monitoring",
+        "Hallucination handling"
+      ]
+    },
+    "platform-oncall": {
+      "name": "Platform/SRE Team",
+      "slack_channel": "#sre-alerts",
+      "pagerduty_service": "platform-oncall",
+      "responsibilities": ["Infrastructure", "Scaling", "Tier 1 services"]
+    },
+    "finops-oncall": {
+      "name": "FinOps Team",
+      "slack_channel": "#finops-alerts",
+      "pagerduty_service": "finops-oncall",
+      "responsibilities": [
+        "Cost monitoring",
+        "Budget management",
+        "Optimization"
+      ]
+    }
+  },
+  "incident_templates": [
+    {
+      "name": "LLM Service Incident",
+      "fields": [
+        {
+          "name": "Affected LLM Service",
+          "type": "dropdown",
+          "options": [
+            "chatbotservice",
+            "shoppingassistantservice",
+            "peau_agent",
+            "all"
+          ],
+          "required": true
+        },
+        {
+          "name": "Quality Score at Detection",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "Token Usage Anomaly",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "User Sessions Affected",
+          "type": "number",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "Security Incident",
+      "fields": [
+        {
+          "name": "Attack Vector",
+          "type": "dropdown",
+          "options": [
+            "prompt_injection",
+            "jailbreak",
+            "data_extraction",
+            "unknown"
+          ],
+          "required": true
+        },
+        {
+          "name": "Attack Successful",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "Data Exposed",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "Source IP/Session Blocked",
+          "type": "boolean",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "dashboard_links": {
+    "llm_quality": "/dashboard/llm-observability",
+    "security_overview": "/dashboard/security-overview",
+    "application_health": "/dashboard/application-health",
+    "infrastructure": "/dashboard/infrastructure"
+  },
+  "runbooks": {
+    "hallucination": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#1-hallucination-detection-runbook",
+    "prompt_injection": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#2-prompt-injection-detection-runbook",
+    "cost_anomaly": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#3-cost-per-conversion-anomaly-runbook",
+    "quality_degradation": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#4-response-quality-degradation-runbook",
+    "predictive_capacity": "https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#5-predictive-capacity-alert-runbook"
+  }
+}
