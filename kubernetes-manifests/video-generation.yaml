@@ -22,22 +22,37 @@ spec:
             - containerPort: 8080
           env:
             - name: PORT
-              value: "8080"
+              value: '8080'
             - name: PRODUCT_CATALOG_SERVICE_ADDR
-              value: "productcatalogservice:3550"
+              value: 'productcatalogservice:3550'
             - name: FRONTEND_SERVICE_ADDR
-              value: "frontend:80"
+              value: 'frontend:80'
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: video-generation-secrets
                   key: GEMINI_API_KEY
             - name: VEO_MODEL_ID
-              value: "veo-3.0-fast-generate-001"
+              value: 'veo-3.0-fast-generate-001'
             - name: PROJECT_ID
-              value: "v-commerce-480915"
+              value: 'v-commerce-480915'
             - name: LOCATION
-              value: "us-central1"
+              value: 'us-central1'
+            # Datadog APM Configuration
+            - name: DD_SERVICE
+              value: 'video-generation'
+            - name: DD_ENV
+              value: 'hackathon'
+            - name: DD_VERSION
+              value: '1.0.0'
+            - name: DD_TRACE_ENABLED
+              value: 'true'
+            - name: DD_AGENT_HOST
+              value: 'datadog-agent'
+            - name: DD_TRACE_AGENT_PORT
+              value: '8126'
+            - name: DD_LOGS_INJECTION
+              value: 'true'
           readinessProbe:
             initialDelaySeconds: 10
             periodSeconds: 120

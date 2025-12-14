@@ -16,34 +16,49 @@ spec:
       serviceAccountName: default
       terminationGracePeriodSeconds: 5
       containers:
-      - name: server
-        image: mcp_service
-        ports:
-        - containerPort: 8080 # Flask HTTP port
-        env:
-        - name: PRODUCT_CATALOG_SERVICE_ADDR
-          value: "productcatalogservice:3550" # Existing product catalog service
-        - name: MCP_PORT
-          value: "8081" # MCP server will run on 8081
-        readinessProbe:
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          httpGet:
-            path: /health
-            port: 8080 # Health check endpoint exposed by Flask in main.py
-        livenessProbe:
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          httpGet:
-            path: /health
-            port: 8080 # Health check endpoint exposed by Flask in main.py
-        resources:
-          requests:
-            cpu: 200m
-            memory: 256Mi
-          limits:
-            cpu: 400m
-            memory: 512Mi
+        - name: server
+          image: mcp_service
+          ports:
+            - containerPort: 8080 # Flask HTTP port
+          env:
+            - name: PRODUCT_CATALOG_SERVICE_ADDR
+              value: 'productcatalogservice:3550' # Existing product catalog service
+            - name: MCP_PORT
+              value: '8081' # MCP server will run on 8081
+            # Datadog APM Configuration
+            - name: DD_SERVICE
+              value: 'mcp-service'
+            - name: DD_ENV
+              value: 'hackathon'
+            - name: DD_VERSION
+              value: '1.0.0'
+            - name: DD_TRACE_ENABLED
+              value: 'true'
+            - name: DD_AGENT_HOST
+              value: 'datadog-agent'
+            - name: DD_TRACE_AGENT_PORT
+              value: '8126'
+            - name: DD_LOGS_INJECTION
+              value: 'true'
+          readinessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            httpGet:
+              path: /health
+              port: 8080 # Health check endpoint exposed by Flask in main.py
+          livenessProbe:
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            httpGet:
+              path: /health
+              port: 8080 # Health check endpoint exposed by Flask in main.py
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 400m
+              memory: 512Mi
 ---
 apiVersion: v1
 kind: Service
@@ -56,9 +71,9 @@ spec:
   selector:
     app: mcp-service
   ports:
-  - name: http
-    port: 8080
-    targetPort: 8080
-  - name: mcp-tcp
-    port: 8081
-    targetPort: 8081
+    - name: http
+      port: 8080
+      targetPort: 8080
+    - name: mcp-tcp
+      port: 8081
+      targetPort: 8081

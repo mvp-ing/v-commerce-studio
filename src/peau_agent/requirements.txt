@@ -4,3 +4,5 @@ Flask
 requests
 mcp # Added for official MCP library
 Flask-Cors # Added for CORS support
+# Datadog APM and LLM Observability
+ddtrace>=2.10.0

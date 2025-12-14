@@ -19,11 +19,9 @@ import (
 	money "github.com/GoogleCloudPlatform/microservices-demo/src/checkoutservice/money"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	// Datadog native tracing
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -74,7 +72,7 @@ func main() {
 	if os.Getenv("ENABLE_TRACING") == "1" {
 		log.Info("Tracing enabled.")
 		initTracing()
-
+		defer tracer.Stop()
 	} else {
 		log.Info("Tracing disabled.")
 	}
@@ -113,15 +111,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var srv *grpc.Server
-
-	// Propagate trace context always
-	otel.SetTextMapPropagator(
-		propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{}, propagation.Baggage{}))
-	srv = grpc.NewServer(
-		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
-		grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+	// Create gRPC server with Datadog tracing interceptors
+	srv := grpc.NewServer(
+		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor()),
 	)
 
 	pb.RegisterCheckoutServiceServer(srv, svc)
@@ -132,33 +125,44 @@ func main() {
 }
 
 func initStats() {
-	//TODO(arbrown) Implement OpenTelemetry stats
+	//TODO(arbrown) Implement stats
 }
 
 func initTracing() {
-	var (
-		collectorAddr string
-		collectorConn *grpc.ClientConn
+	// Get Datadog Agent address from environment
+	agentHost := os.Getenv("DD_AGENT_HOST")
+	if agentHost == "" {
+		agentHost = "datadog-agent"
+	}
+	agentPort := os.Getenv("DD_TRACE_AGENT_PORT")
+	if agentPort == "" {
+		agentPort = "8126"
+	}
+
+	// Get service configuration
+	serviceName := os.Getenv("DD_SERVICE")
+	if serviceName == "" {
+		serviceName = "checkoutservice"
+	}
+	serviceEnv := os.Getenv("DD_ENV")
+	if serviceEnv == "" {
+		serviceEnv = "hackathon"
+	}
+	serviceVersion := os.Getenv("DD_VERSION")
+	if serviceVersion == "" {
+		serviceVersion = "1.0.0"
+	}
+
+	// Start the Datadog tracer
+	tracer.Start(
+		tracer.WithAgentAddr(fmt.Sprintf("%s:%s", agentHost, agentPort)),
+		tracer.WithService(serviceName),
+		tracer.WithEnv(serviceEnv),
+		tracer.WithServiceVersion(serviceVersion),
+		tracer.WithAnalytics(true),
 	)
 
-	ctx := context.Background()
-	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
-	defer cancel()
-
-	mustMapEnv(&collectorAddr, "COLLECTOR_SERVICE_ADDR")
-	mustConnGRPC(ctx, &collectorConn, collectorAddr)
-
-	exporter, err := otlptracegrpc.New(
-		ctx,
-		otlptracegrpc.WithGRPCConn(collectorConn))
-	if err != nil {
-		log.Warnf("warn: Failed to create trace exporter: %v", err)
-	}
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	otel.SetTracerProvider(tp)
-
+	log.Infof("Datadog tracer initialized (agent: %s:%s, service: %s)", agentHost, agentPort, serviceName)
 }
 
 func initProfiling(service, version string) {
@@ -197,8 +201,8 @@ func mustConnGRPC(ctx context.Context, conn **grpc.ClientConn, addr string) {
 	defer cancel()
 	*conn, err = grpc.DialContext(ctx, addr,
 		grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
+		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor()))
 	if err != nil {
 		panic(errors.Wrapf(err, "grpc: failed to connect %s", addr))
 	}

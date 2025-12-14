@@ -21,10 +21,47 @@ from google.genai import types
 # from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset
 # from google.adk.tools.mcp_tool.mcp_session_manager import TcpConnectionParams # Using TCP for network
 
-# Configure logging
+# ============================================
+# Datadog APM and LLM Observability Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+from ddtrace.llmobs import LLMObs
+
+# Set service name before patching
+config.service = "peau-agent"
+
+# Initialize Datadog tracing
+patch_all()
+
+# Initialize LLM Observability (agentless mode)
+LLMObs.enable(
+    ml_app=os.getenv("DD_LLMOBS_ML_APP", "v-commerce-peau-agent"),
+    agentless_enabled=os.getenv("DD_LLMOBS_AGENTLESS_ENABLED", "true").lower() == "true",
+)
+
+def emit_peau_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
+                      tool_calls: int = 0, model_name: str = "gemini-2.0-flash"):
+    """Emit custom PEAU Agent metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        span.set_tag("llm.model", model_name)
+        span.set_tag("llm.tokens.input", input_tokens)
+        span.set_tag("llm.tokens.output", output_tokens)
+        span.set_tag("llm.tokens.total", input_tokens + output_tokens)
+        span.set_tag("llm.request.duration_ms", duration_ms)
+        span.set_tag("peau.tool_calls", tool_calls)
+        
+        # Estimate cost (Gemini 2.0 Flash pricing)
+        input_cost = (input_tokens / 1_000_000) * 0.075
+        output_cost = (output_tokens / 1_000_000) * 0.30
+        span.set_tag("llm.tokens.total_cost_usd", input_cost + output_cost)
+
+# ============================================
+
+# Configure logging with Datadog trace correlation
 logging.basicConfig(
     level=logging.INFO,
-    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "message": "%(message)s"}',
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "peau-agent", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
     datefmt='%Y-%m-%dT%H:%M:%S.%fZ'
 )
 logger = logging.getLogger(__name__)
@@ -158,6 +195,7 @@ class PEAUAgent:
             return result["products"][0]
         return None
 
+    @tracer.wrap(service="peau-agent", resource="track_user_behavior")
     def track_user_behavior(self, user_id: str, events: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Tracks user behavior and returns suggestion only when thresholds are met.
@@ -170,6 +208,11 @@ class PEAUAgent:
         - None if no threshold met
         - Suggestion dict if threshold triggered
         """
+        span = tracer.current_span()
+        if span:
+            span.set_tag("user_id", user_id)
+            span.set_tag("events_count", len(events))
+        
         # Initialize user state if not exists
         if user_id not in self.user_behavior_state:
             self.user_behavior_state[user_id] = {}
@@ -353,59 +396,92 @@ Do no hallucinate in returning product IDs.
 
     async def _generate_suggestion_async(self, user_id: str, prompt: str) -> Dict[str, Any]:
         """Async method to generate suggestions using ADK pattern."""
-
-        try:
-            # Use the correct async pattern from ADK example
-            session_service = InMemorySessionService()
-            session_id = f"session_{user_id}_{int(time.time())}"
-            
-            # Create session using await
-            await session_service.create_session(
-                app_name=self.app_name,
-                user_id=user_id,
-                session_id=session_id
+        start_time = time.time()
+        
+        # Start LLM Observability span
+        with LLMObs.agent(
+            name="peau_agent.generate_suggestion",
+            ml_app="v-commerce-peau-agent"
+        ) as agent_span:
+            LLMObs.annotate(
+                span=agent_span,
+                input_data=prompt,
+                metadata={"user_id": user_id}
             )
             
-            # Create runner
-            runner = Runner(
-                agent=self.adk_agent,
-                app_name=self.app_name,
-                session_service=session_service
-            )
-            
-            # Use run_async with await
-            user_content = types.Content(role='user', parts=[types.Part(text=prompt)])
-            
-            suggestion_text = ""
-            async for event in runner.run_async(
-                user_id=user_id,
-                session_id=session_id,
-                new_message=user_content
-            ):
-                logger.info(f"ADK Event: {type(event).__name__}")
-                if event.is_final_response() and event.content and event.content.parts:
-                    suggestion_text = event.content.parts[0].text.strip()
-                    break
-            
-            if not suggestion_text:
-                suggestion_text = "I'm sorry, I couldn't generate a suggestion right now."
-            
-            recommended_product_ids = self._extract_product_ids(suggestion_text)
-            
-            logger.info(f"Generated proactive suggestion for user {user_id}: {suggestion_text}")
-            return {
-                "suggestion": suggestion_text,
-                "recommended_product_ids": recommended_product_ids
-            }
-            
-        except Exception as e:
-            logger.error(f"Error in _generate_suggestion_async for user {user_id}: {e}")
-            import traceback
-            logger.error(f"Full traceback: {traceback.format_exc()}")
-            return {
-                "suggestion": "I'm sorry, I'm having trouble generating suggestions right now.",
-                "recommended_product_ids": []
-            }
+            try:
+                # Use the correct async pattern from ADK example
+                session_service = InMemorySessionService()
+                session_id = f"session_{user_id}_{int(time.time())}"
+                
+                # Create session using await
+                await session_service.create_session(
+                    app_name=self.app_name,
+                    user_id=user_id,
+                    session_id=session_id
+                )
+                
+                # Create runner
+                runner = Runner(
+                    agent=self.adk_agent,
+                    app_name=self.app_name,
+                    session_service=session_service
+                )
+                
+                # Use run_async with await
+                user_content = types.Content(role='user', parts=[types.Part(text=prompt)])
+                
+                suggestion_text = ""
+                tool_call_count = 0
+                async for event in runner.run_async(
+                    user_id=user_id,
+                    session_id=session_id,
+                    new_message=user_content
+                ):
+                    logger.info(f"ADK Event: {type(event).__name__}")
+                    # Track tool calls
+                    if hasattr(event, 'tool_calls') and event.tool_calls:
+                        tool_call_count += len(event.tool_calls)
+                    if event.is_final_response() and event.content and event.content.parts:
+                        suggestion_text = event.content.parts[0].text.strip()
+                        break
+                
+                if not suggestion_text:
+                    suggestion_text = "I'm sorry, I couldn't generate a suggestion right now."
+                
+                recommended_product_ids = self._extract_product_ids(suggestion_text)
+                
+                # Emit metrics
+                duration_ms = (time.time() - start_time) * 1000
+                input_tokens = len(prompt) // 4
+                output_tokens = len(suggestion_text) // 4
+                emit_peau_metrics(input_tokens, output_tokens, duration_ms, tool_call_count)
+                
+                # Annotate LLMObs span
+                LLMObs.annotate(
+                    span=agent_span,
+                    output_data=suggestion_text,
+                    metadata={
+                        "recommended_products": recommended_product_ids,
+                        "tool_calls": tool_call_count
+                    }
+                )
+                
+                logger.info(f"Generated proactive suggestion for user {user_id}: {suggestion_text}")
+                return {
+                    "suggestion": suggestion_text,
+                    "recommended_product_ids": recommended_product_ids
+                }
+                
+            except Exception as e:
+                logger.error(f"Error in _generate_suggestion_async for user {user_id}: {e}")
+                import traceback
+                logger.error(f"Full traceback: {traceback.format_exc()}")
+                LLMObs.annotate(span=agent_span, output_data=f"Error: {str(e)}")
+                return {
+                    "suggestion": "I'm sorry, I'm having trouble generating suggestions right now.",
+                    "recommended_product_ids": []
+                }
 
     def _extract_product_ids(self, text: str) -> List[str]:
         """Extracts product IDs from the generated text."""

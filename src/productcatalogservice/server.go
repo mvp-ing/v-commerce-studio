@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"net"
@@ -12,18 +11,15 @@ import (
 	"time"
 
 	pb "github.com/GoogleCloudPlatform/microservices-demo/src/productcatalogservice/genproto"
-	"google.golang.org/grpc/credentials/insecure"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"cloud.google.com/go/profiler"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
+
+	// Datadog native tracing
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 var (
@@ -52,10 +48,8 @@ func init() {
 
 func main() {
 	if os.Getenv("ENABLE_TRACING") == "1" {
-		err := initTracing()
-		if err != nil {
-			log.Warnf("warn: failed to start tracer: %+v", err)
-		}
+		initTracing()
+		defer tracer.Stop()
 	} else {
 		log.Info("Tracing disabled.")
 	}
@@ -111,14 +105,10 @@ func run(port string) string {
 		log.Fatal(err)
 	}
 
-	// Propagate trace context
-	otel.SetTextMapPropagator(
-		propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{}, propagation.Baggage{}))
-	var srv *grpc.Server
-	srv = grpc.NewServer(
-		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
-		grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()))
+	// Create gRPC server with Datadog tracing interceptors
+	srv := grpc.NewServer(
+		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor()))
 
 	svc := &productCatalog{}
 	err = loadCatalog(&svc.catalog)
@@ -134,31 +124,44 @@ func run(port string) string {
 }
 
 func initStats() {
-	// TODO(drewbr) Implement OpenTelemetry stats
+	// TODO(drewbr) Implement stats
 }
 
-func initTracing() error {
-	var (
-		collectorAddr string
-		collectorConn *grpc.ClientConn
+func initTracing() {
+	// Get Datadog Agent address from environment
+	agentHost := os.Getenv("DD_AGENT_HOST")
+	if agentHost == "" {
+		agentHost = "datadog-agent"
+	}
+	agentPort := os.Getenv("DD_TRACE_AGENT_PORT")
+	if agentPort == "" {
+		agentPort = "8126"
+	}
+
+	// Get service configuration
+	serviceName := os.Getenv("DD_SERVICE")
+	if serviceName == "" {
+		serviceName = "productcatalogservice"
+	}
+	serviceEnv := os.Getenv("DD_ENV")
+	if serviceEnv == "" {
+		serviceEnv = "hackathon"
+	}
+	serviceVersion := os.Getenv("DD_VERSION")
+	if serviceVersion == "" {
+		serviceVersion = "1.0.0"
+	}
+
+	// Start the Datadog tracer
+	tracer.Start(
+		tracer.WithAgentAddr(fmt.Sprintf("%s:%s", agentHost, agentPort)),
+		tracer.WithService(serviceName),
+		tracer.WithEnv(serviceEnv),
+		tracer.WithServiceVersion(serviceVersion),
+		tracer.WithAnalytics(true),
 	)
 
-	ctx := context.Background()
-
-	mustMapEnv(&collectorAddr, "COLLECTOR_SERVICE_ADDR")
-	mustConnGRPC(ctx, &collectorConn, collectorAddr)
-
-	exporter, err := otlptracegrpc.New(
-		ctx,
-		otlptracegrpc.WithGRPCConn(collectorConn))
-	if err != nil {
-		log.Warnf("warn: Failed to create trace exporter: %v", err)
-	}
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	otel.SetTracerProvider(tp)
-	return err
+	log.Infof("Datadog tracer initialized (agent: %s:%s, service: %s)", agentHost, agentPort, serviceName)
 }
 
 func initProfiling(service, version string) {
@@ -179,25 +182,4 @@ func initProfiling(service, version string) {
 		time.Sleep(d)
 	}
 	log.Warn("could not initialize Stackdriver profiler after retrying, giving up")
-}
-
-func mustMapEnv(target *string, envKey string) {
-	v := os.Getenv(envKey)
-	if v == "" {
-		panic(fmt.Sprintf("environment variable %q not set", envKey))
-	}
-	*target = v
-}
-
-func mustConnGRPC(ctx context.Context, conn **grpc.ClientConn, addr string) {
-	var err error
-	ctx, cancel := context.WithTimeout(ctx, time.Second*3)
-	defer cancel()
-	*conn, err = grpc.DialContext(ctx, addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
-	if err != nil {
-		panic(errors.Wrapf(err, "grpc: failed to connect %s", addr))
-	}
 }

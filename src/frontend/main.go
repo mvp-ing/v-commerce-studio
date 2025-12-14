@@ -9,16 +9,14 @@ import (
 	"time"
 
 	"cloud.google.com/go/profiler"
-	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/propagation"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
+
+	// Datadog native tracing
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
+	httptrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/gorilla/mux"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -136,9 +134,6 @@ type frontendServer struct {
 	adSvcAddr string
 	adSvcConn *grpc.ClientConn
 
-	collectorAddr string
-	collectorConn *grpc.ClientConn
-
 	shoppingAssistantSvcAddr string
 	tryOnSvcAddr             string
 	chatbotSvcAddr           string
@@ -166,15 +161,12 @@ func main() {
 	svc := new(frontendServer)
 	svc.notifications = NewNotificationStore()
 
-	otel.SetTextMapPropagator(
-		propagation.NewCompositeTextMapPropagator(
-			propagation.TraceContext{}, propagation.Baggage{}))
-
 	baseUrl = os.Getenv("BASE_URL")
 
 	if os.Getenv("ENABLE_TRACING") == "1" {
 		log.Info("Tracing enabled.")
-		initTracing(log, ctx, svc)
+		initTracing(log)
+		defer tracer.Stop()
 	} else {
 		log.Info("Tracing disabled.")
 	}
@@ -212,7 +204,8 @@ func main() {
 	mustConnGRPC(ctx, &svc.checkoutSvcConn, svc.checkoutSvcAddr)
 	mustConnGRPC(ctx, &svc.adSvcConn, svc.adSvcAddr)
 
-	r := mux.NewRouter()
+	// Create Datadog-traced mux router
+	r := httptrace.NewRouter()
 	r.HandleFunc(baseUrl+"/", svc.homeHandler).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc(baseUrl+"/product/{id}", svc.productHandler).Methods(http.MethodGet, http.MethodHead)
 	r.HandleFunc(baseUrl+"/cart", svc.viewCartHandler).Methods(http.MethodGet, http.MethodHead)
@@ -241,32 +234,51 @@ func main() {
 	r.HandleFunc(baseUrl+"/api/notifications/{id}/read", svc.markNotificationReadHandler).Methods(http.MethodPost)
 
 	var handler http.Handler = r
-	handler = &logHandler{log: log, next: handler}     // add logging
-	handler = ensureSessionID(handler)                 // add session ID
-	handler = otelhttp.NewHandler(handler, "frontend") // add OTel tracing
+	handler = &logHandler{log: log, next: handler} // add logging
+	handler = ensureSessionID(handler)             // add session ID
 
 	log.Infof("starting server on " + addr + ":" + srvPort)
 	log.Fatal(http.ListenAndServe(addr+":"+srvPort, handler))
 }
 func initStats(log logrus.FieldLogger) {
-	// TODO(arbrown) Implement OpenTelemtry stats
+	// TODO(arbrown) Implement stats
 }
 
-func initTracing(log logrus.FieldLogger, ctx context.Context, svc *frontendServer) (*sdktrace.TracerProvider, error) {
-	mustMapEnv(&svc.collectorAddr, "COLLECTOR_SERVICE_ADDR")
-	mustConnGRPC(ctx, &svc.collectorConn, svc.collectorAddr)
-	exporter, err := otlptracegrpc.New(
-		ctx,
-		otlptracegrpc.WithGRPCConn(svc.collectorConn))
-	if err != nil {
-		log.Warnf("warn: Failed to create trace exporter: %v", err)
+func initTracing(log logrus.FieldLogger) {
+	// Get Datadog Agent address from environment
+	agentHost := os.Getenv("DD_AGENT_HOST")
+	if agentHost == "" {
+		agentHost = "datadog-agent"
 	}
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithSampler(sdktrace.AlwaysSample()))
-	otel.SetTracerProvider(tp)
+	agentPort := os.Getenv("DD_TRACE_AGENT_PORT")
+	if agentPort == "" {
+		agentPort = "8126"
+	}
 
-	return tp, err
+	// Get service configuration
+	serviceName := os.Getenv("DD_SERVICE")
+	if serviceName == "" {
+		serviceName = "frontend"
+	}
+	serviceEnv := os.Getenv("DD_ENV")
+	if serviceEnv == "" {
+		serviceEnv = "hackathon"
+	}
+	serviceVersion := os.Getenv("DD_VERSION")
+	if serviceVersion == "" {
+		serviceVersion = "1.0.0"
+	}
+
+	// Start the Datadog tracer
+	tracer.Start(
+		tracer.WithAgentAddr(fmt.Sprintf("%s:%s", agentHost, agentPort)),
+		tracer.WithService(serviceName),
+		tracer.WithEnv(serviceEnv),
+		tracer.WithServiceVersion(serviceVersion),
+		tracer.WithAnalytics(true),
+	)
+
+	log.Infof("Datadog tracer initialized (agent: %s:%s, service: %s)", agentHost, agentPort, serviceName)
 }
 
 func initProfiling(log logrus.FieldLogger, service, version string) {
@@ -306,8 +318,8 @@ func mustConnGRPC(ctx context.Context, conn **grpc.ClientConn, addr string) {
 	defer cancel()
 	*conn, err = grpc.DialContext(ctx, addr,
 		grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(otelgrpc.UnaryClientInterceptor()),
-		grpc.WithStreamInterceptor(otelgrpc.StreamClientInterceptor()))
+		grpc.WithUnaryInterceptor(grpctrace.UnaryClientInterceptor()),
+		grpc.WithStreamInterceptor(grpctrace.StreamClientInterceptor()))
 	if err != nil {
 		panic(errors.Wrapf(err, "grpc: failed to connect %s", addr))
 	}

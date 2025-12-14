@@ -23,20 +23,60 @@ spec:
             - containerPort: 8081 # MCP server port
           env:
             - name: PROJECT_ID
-              value: "v-commerce-480915" # Replace with your actual GCP Project ID
+              value: 'v-commerce-480915' # Replace with your actual GCP Project ID
             - name: LOCATION
-              value: "us-central1" # Replace with your desired Vertex AI location
+              value: 'us-central1' # Replace with your desired Vertex AI location
             - name: MCP_SERVICE_ADDR
-              value: "mcp-service:8080" # Address of the generic MCP service (HTTP port for requests-based client)
+              value: 'mcp-service:8080' # Address of the generic MCP service (HTTP port for requests-based client)
             # ADK configuration to use Vertex AI
             - name: GOOGLE_GENAI_USE_VERTEXAI
-              value: "TRUE"
+              value: 'TRUE'
             - name: GOOGLE_CLOUD_PROJECT
-              value: "v-commerce-480915" # Same as PROJECT_ID
+              value: 'v-commerce-480915' # Same as PROJECT_ID
             - name: GOOGLE_CLOUD_LOCATION
-              value: "us-central1" # Same as LOCATION
+              value: 'us-central1' # Same as LOCATION
             - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: "/var/secrets/google/key.json"
+              value: '/var/secrets/google/key.json'
+            # Datadog LLM Observability (Agentless Mode)
+            - name: DD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datadog-secrets
+                  key: api-key
+            - name: DD_APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datadog-secrets
+                  key: app-key
+            - name: DD_SITE
+              valueFrom:
+                configMapKeyRef:
+                  name: datadog-config
+                  key: dd-site
+            - name: DD_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: datadog-config
+                  key: dd-env
+            - name: DD_SERVICE
+              value: 'peau-agent'
+            - name: DD_LLMOBS_ENABLED
+              value: 'true'
+            - name: DD_LLMOBS_AGENTLESS_ENABLED
+              value: 'true'
+            - name: DD_LLMOBS_ML_APP
+              value: 'v-commerce-peau-agent'
+            - name: DD_TRACE_ENABLED
+              value: 'true'
+            - name: DD_LOGS_INJECTION
+              value: 'true'
+            # Point to Datadog Agent running on the same node
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_TRACE_AGENT_PORT
+              value: '8126'
           volumeMounts:
             - name: gcp-credentials
               mountPath: /var/secrets/google

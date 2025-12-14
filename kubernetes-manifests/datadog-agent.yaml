@@ -1,0 +1,151 @@
+# Datadog Agent DaemonSet for APM + LLM Observability
+#
+# This deploys the Datadog Agent on each node to collect traces from your services.
+#
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: datadog-agent
+  labels:
+    app: datadog-agent
+spec:
+  selector:
+    matchLabels:
+      app: datadog-agent
+  template:
+    metadata:
+      labels:
+        app: datadog-agent
+    spec:
+      serviceAccountName: datadog-agent
+      containers:
+        - name: agent
+          image: gcr.io/datadoghq/agent:latest
+          ports:
+            - containerPort: 8126
+              hostPort: 8126
+              name: traceport
+              protocol: TCP
+            - containerPort: 8125
+              hostPort: 8125
+              name: dogstatsdport
+              protocol: UDP
+          env:
+            - name: DD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datadog-secrets
+                  key: api-key
+            - name: DD_SITE
+              valueFrom:
+                configMapKeyRef:
+                  name: datadog-config
+                  key: dd-site
+            - name: DD_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: datadog-config
+                  key: dd-env
+            # Enable APM
+            - name: DD_APM_ENABLED
+              value: 'true'
+            - name: DD_APM_NON_LOCAL_TRAFFIC
+              value: 'true'
+            # Enable Logs
+            - name: DD_LOGS_ENABLED
+              value: 'true'
+            - name: DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL
+              value: 'true'
+            # Enable LLM Observability
+            - name: DD_LLMOBS_ENABLED
+              value: 'true'
+            # Kubernetes metadata
+            - name: DD_KUBERNETES_KUBELET_NODENAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: DD_CLUSTER_NAME
+              value: 'v-commerce-cluster'
+          resources:
+            requests:
+              memory: '256Mi'
+              cpu: '200m'
+            limits:
+              memory: '512Mi'
+              cpu: '500m'
+          volumeMounts:
+            - name: dockersocket
+              mountPath: /var/run/docker.sock
+            - name: procdir
+              mountPath: /host/proc
+              readOnly: true
+            - name: cgroups
+              mountPath: /host/sys/fs/cgroup
+              readOnly: true
+      volumes:
+        - name: dockersocket
+          hostPath:
+            path: /var/run/docker.sock
+        - name: procdir
+          hostPath:
+            path: /proc
+        - name: cgroups
+          hostPath:
+            path: /sys/fs/cgroup
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: datadog-agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: datadog-agent
+rules:
+  - apiGroups: ['']
+    resources:
+      - nodes
+      - pods
+      - services
+      - endpoints
+      - events
+    verbs: ['get', 'list', 'watch']
+  - apiGroups: ['']
+    resources:
+      - configmaps
+    verbs: ['get']
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: datadog-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: datadog-agent
+subjects:
+  - kind: ServiceAccount
+    name: datadog-agent
+    namespace: default
+---
+# Service to allow pods to reach the agent by DNS name
+apiVersion: v1
+kind: Service
+metadata:
+  name: datadog-agent
+  labels:
+    app: datadog-agent
+spec:
+  selector:
+    app: datadog-agent
+  ports:
+    - name: traceport
+      port: 8126
+      targetPort: 8126
+      protocol: TCP
+    - name: dogstatsdport
+      port: 8125
+      targetPort: 8125
+      protocol: UDP
+  clusterIP: None

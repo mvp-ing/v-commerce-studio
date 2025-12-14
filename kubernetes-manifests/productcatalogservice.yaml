@@ -37,6 +37,19 @@ spec:
               value: '3550'
             - name: DISABLE_PROFILER
               value: '1'
+            # Enable native Datadog tracing (dd-trace-go)
+            - name: ENABLE_TRACING
+              value: '1'
+            - name: DD_AGENT_HOST
+              value: 'datadog-agent'
+            - name: DD_TRACE_AGENT_PORT
+              value: '8126'
+            - name: DD_SERVICE
+              value: 'productcatalogservice'
+            - name: DD_ENV
+              value: 'hackathon'
+            - name: DD_VERSION
+              value: '1.0.0'
           readinessProbe:
             grpc:
               port: 3550

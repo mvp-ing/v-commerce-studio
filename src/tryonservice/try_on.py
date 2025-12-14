@@ -1,6 +1,8 @@
 import os
 import base64
 import traceback
+import time
+import logging
 from io import BytesIO
 from typing import Optional, Tuple
 
@@ -9,6 +11,37 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import Response, PlainTextResponse
 from dotenv import load_dotenv
 import google.generativeai as genai
+
+# ============================================
+# Datadog APM Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+
+# Set service name before patching
+config.fastapi["service_name"] = "tryonservice"
+config.service = "tryonservice"
+
+# Initialize Datadog tracing (auto-patches fastapi, httpx, etc.)
+patch_all()
+
+# Configure logging with Datadog trace correlation
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "tryonservice", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    datefmt='%Y-%m-%dT%H:%M:%S'
+)
+logger = logging.getLogger('tryonservice')
+
+def emit_tryon_metrics(inference_duration_ms: float, category: str, success: bool = True):
+    """Emit custom try-on service metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        span.set_tag("tryon.inference.duration_ms", inference_duration_ms)
+        span.set_tag("tryon.category", category)
+        span.set_tag("tryon.success", success)
+        span.set_tag("tryon.model", TRYON_MODEL)
+
+# ============================================
 
 # Load environment variables (e.g., GEMINI_API_KEY)
 load_dotenv()
@@ -94,6 +127,7 @@ async def tryon(
     product_image: UploadFile = File(...),
     category: str = Form("fashion")
 ):
+    start_time = time.time()
     try:
         base_bytes = await base_image.read()
         product_bytes = await product_image.read()
@@ -107,14 +141,17 @@ async def tryon(
         prompt = get_prompt_for_category(category)
 
         try:
+            inference_start = time.time()
             resp = model.generate_content(
                 [prompt, person_part, product_part],
                 generation_config=GENERATION_CONFIG,
                 request_options={"timeout": 180},
             )
+            inference_duration = (time.time() - inference_start) * 1000
         except Exception as ge:
             # Log full traceback server-side
-            print("[tryon] generate_content failed:\n" + traceback.format_exc())
+            logger.error("[tryon] generate_content failed:\n" + traceback.format_exc())
+            emit_tryon_metrics(inference_duration_ms=0, category=category, success=False)
             # Surface a useful error message
             raise HTTPException(status_code=502, detail=f"Generation call failed: {str(ge)}")
 
@@ -138,13 +175,18 @@ async def tryon(
         if not img_bytes:
             # Try to include additional info if available
             details = getattr(resp, "text", None) or str(getattr(resp, "prompt_feedback", "No image generated"))
+            emit_tryon_metrics(inference_duration_ms=inference_duration, category=category, success=False)
             raise HTTPException(status_code=502, detail=f"No image generated: {details}")
+
+        # Emit successful metrics
+        emit_tryon_metrics(inference_duration_ms=inference_duration, category=category, success=True)
+        logger.info(f"Try-on completed successfully for category '{category}' in {inference_duration:.2f}ms")
 
         return Response(content=img_bytes, media_type="image/png")
     except HTTPException:
         raise
     except Exception as e:
-        print("[tryon] Unexpected error:\n" + traceback.format_exc())
+        logger.error("[tryon] Unexpected error:\n" + traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 # If running directly: uvicorn try_on:app --host 0.0.0.0 --port 8080

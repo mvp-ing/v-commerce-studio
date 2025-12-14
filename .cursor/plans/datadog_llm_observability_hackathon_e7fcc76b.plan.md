@@ -56,7 +56,7 @@ todos: []
 
 |---|------|--------|
 
-| S0 | Set up Datadog Agent locally + configure DD_API_KEY, DD_SITE env vars | ⬜ Pending |
+| S0 | Configure Datadog cloud account credentials (DD_API_KEY, DD_SITE) + enable agentless mode | ✅ Complete |
 
 ### 👤 PERSON A TASKS (9 tasks - one at a time)
 
@@ -64,13 +64,13 @@ todos: []
 
 |---|------|--------|
 
-| A1 | Instrument 3 LLM services (chatbotservice, peau_agent, shoppingassistantservice) with ddtrace + custom LLM metrics | ⬜ Pending |
+| A1 | Instrument 3 LLM services (chatbotservice, peau_agent, shoppingassistantservice) with ddtrace + custom LLM metrics | ✅ Complete |
 
-| A2 | Instrument Go services (frontend, checkoutservice, productcatalogservice, shippingservice) with dd-trace-go | ⬜ Pending |
+| A2 | Instrument Go services (frontend, checkoutservice, productcatalogservice, shippingservice) with OTLP to Datadog | ✅ Complete |
 
-| A3 | Instrument Python supporting services (adservice, cartservice, emailservice, recommendationservice, tryonservice, video_generation, mcp_service) | ⬜ Pending |
+| A3 | Instrument Python supporting services (adservice, cartservice, emailservice, recommendationservice, tryonservice, video_generation, mcp_service) | ✅ Complete |
 
-| A4 | Instrument Node.js services (currencyservice, paymentservice) with dd-trace-js | ⬜ Pending |
+| A4 | Instrument Node.js services (currencyservice, paymentservice) with dd-trace-js | ✅ Complete |
 
 | A5 | Configure 5 detection rules in Datadog (hallucination, injection, cost-per-conversion, quality, predictive) | ⬜ Pending |
 
@@ -80,7 +80,7 @@ todos: []
 
 | A8 | Create traffic-generator.py script to trigger all detection rules | ⬜ Pending |
 
-| A9 | Create K8s manifests (datadog-agent.yaml, observability-insights-service.yaml) | ⬜ Pending |
+| A9 | Create K8s manifests (observability-insights-service.yaml, optional datadog-agent.yaml for infra metrics) | ⬜ Pending |
 
 ### 👤 PERSON B TASKS (1 task with sub-components)
 
@@ -132,9 +132,9 @@ Integrate Datadog observability into the v-commerce microservices application, f
 
 ```
 Day 1 Morning:  🤝 SHARED SETUP (Both together)
-                ├── Set up Datadog Agent
-                ├── Configure environment variables
-                └── Verify APM connectivity
+                ├── Configure Datadog cloud account credentials
+                ├── Set up environment variables (agentless mode)
+                └── Verify API connectivity to Datadog cloud
 
 Day 1-3:        PARALLEL WORK
                 ┌──────────────────────────────────────────┬──────────────────────────────────────────┐
@@ -163,27 +163,47 @@ Final Day:      🤝 FINAL SYNC (Both together)
 
 ## 🤝 Phase 0: Shared Setup (Both Together)
 
-**Duration:** 1-2 hours
+**Duration:** 30 minutes - 1 hour
 
-**Goal:** Get Datadog Agent running locally so both can test independently
+**Goal:** Configure Datadog cloud account credentials for agentless telemetry submission
 
 ### Tasks
 
-- [ ] Deploy Datadog Agent locally via Docker
-- [ ] Set shared environment variables: `DD_API_KEY`, `DD_SITE`, `DD_ENV`
-- [ ] Enable APM, logs, LLM Observability in agent config
-- [ ] Verify connection to Datadog UI
+- [ ] Log into your Datadog cloud account at https://app.datadoghq.com (or your DD_SITE)
+- [ ] Generate/copy your DD_API_KEY from Organization Settings → API Keys
+- [ ] Generate/copy your DD_APP_KEY from Organization Settings → Application Keys
+- [ ] Set shared environment variables: `DD_API_KEY`, `DD_APP_KEY`, `DD_SITE`, `DD_ENV`
+- [ ] Enable LLM Observability in Datadog UI (Integrations → LLM Observability)
+- [ ] Verify API connectivity with a test request
 - [ ] Create shared `.env.datadog` file for team
 ```bash
-# .env.datadog (shared config)
-DD_API_KEY=<your-key>
-DD_SITE=datadoghq.com
+# .env.datadog (shared config - using Datadog Cloud Account)
+DD_API_KEY=<your-api-key-from-datadog-account>
+DD_APP_KEY=<your-app-key-from-datadog-account>
+DD_SITE=datadoghq.com  # or us5.datadoghq.com, datadoghq.eu, etc.
 DD_ENV=hackathon
 DD_SERVICE=v-commerce
+
+# Agentless mode - sends data directly to Datadog cloud (no local agent required)
 DD_LLMOBS_ENABLED=1
 DD_LLMOBS_AGENTLESS_ENABLED=1
+DD_LLMOBS_ML_APP=v-commerce-llm
+
+# For APM (agentless mode)
+DD_TRACE_ENABLED=1
+DD_AGENT_HOST=  # Leave empty for agentless
 ```
 
+
+### Verify Setup
+
+```bash
+# Test API connectivity
+curl -X GET "https://api.datadoghq.com/api/v1/validate" \
+  -H "DD-API-KEY: ${DD_API_KEY}"
+
+# Expected: {"valid": true}
+```
 
 ---
 
@@ -315,8 +335,9 @@ Must include scenarios to trigger ALL 5 detection rules:
 
 **Files to create:**
 
-- `kubernetes-manifests/datadog-agent.yaml` - DaemonSet config
-- `kubernetes-manifests/observability-insights-service.yaml` - New service deployment
+- `kubernetes-manifests/observability-insights-service.yaml` - New service deployment (with agentless DD env vars)
+- `kubernetes-manifests/datadog-secrets.yaml` - Kubernetes secrets for DD_API_KEY, DD_APP_KEY
+- `kubernetes-manifests/datadog-agent.yaml` - (Optional) DaemonSet for infrastructure metrics only
 
 ---
 
@@ -350,9 +371,10 @@ src/observability_insights_service/
 ### Deploy to GKE
 
 - [ ] Create GKE cluster (if not exists)
-- [ ] Deploy Datadog Agent DaemonSet
-- [ ] Apply all K8s manifests
-- [ ] Verify services are running
+- [ ] Create Kubernetes secrets for Datadog credentials (DD_API_KEY, DD_APP_KEY)
+- [ ] Apply all K8s manifests (configured with agentless mode)
+- [ ] (Optional) Deploy Datadog Agent DaemonSet for infrastructure metrics
+- [ ] Verify services are running and sending data to Datadog cloud
 
 ### Verify End-to-End
 
@@ -384,7 +406,7 @@ curl -X GET "https://api.datadoghq.com/api/v1/monitor" -H "DD-API-KEY: ${DD_API_
 
 |------------|-------------------|-------------------|-------------|
 
-| After Setup | Datadog Agent working | Datadog Agent working | Verify both can see APM data |
+| After Setup | Datadog cloud connected | Datadog cloud connected | Verify both can see data in Datadog UI |
 
 | Mid-point | LLM services instrumented + custom metrics flowing | Insights Service MVP (can fetch from Datadog API) | Test Insights Service reads LLM metrics from Person A's work |
 
@@ -402,13 +424,14 @@ curl -X GET "https://api.datadoghq.com/api/v1/monitor" -H "DD-API-KEY: ${DD_API_
 
 ---
 
-## Phase 1: Datadog Agent Setup and Full-Stack APM Instrumentation
+## Phase 1: Datadog Cloud Setup and Full-Stack APM Instrumentation
 
-### 1.1 Local Testing Setup
+### 1.1 Cloud Account Setup (Agentless Mode)
 
-- Deploy Datadog Agent locally via Docker for testing
-- Configure `DD_API_KEY`, `DD_SITE`, and `DD_ENV` environment variables
-- Enable APM, logs, LLM Observability, and infrastructure monitoring
+- Use your existing Datadog cloud account (no local agent required)
+- Configure `DD_API_KEY`, `DD_APP_KEY`, `DD_SITE`, and `DD_ENV` environment variables
+- Enable agentless mode with `DD_LLMOBS_AGENTLESS_ENABLED=1` for LLM Observability
+- APM data will be sent directly to Datadog cloud via the ddtrace library
 
 ### 1.2 Instrument ALL Python Services with `ddtrace`
 
@@ -938,7 +961,8 @@ v-commerce/
 │   ├── observability_insights_service/ # NEW - AI insights
 │   └── ... (all other services)
 ├── kubernetes-manifests/
-│   ├── datadog-agent.yaml            # Datadog Agent DaemonSet
+│   ├── datadog-secrets.yaml          # Secrets for DD_API_KEY, DD_APP_KEY
+│   ├── datadog-agent.yaml            # (Optional) Datadog Agent DaemonSet for infra metrics
 │   └── observability-insights-service.yaml
 ├── datadog-exports/                   # NEW FOLDER
 │   ├── monitors.json                 # All monitor configurations
@@ -971,25 +995,27 @@ v-commerce/
 ## Prerequisites
 
 - Google Cloud account with Vertex AI enabled
-- Datadog account with API key
+- Datadog cloud account with API key and App key
 - kubectl configured for GKE
 - Docker installed (for local testing)
 
-## Quick Start (Local)
+## Quick Start (Local - Agentless Mode)
 
 1. Clone repository
-2. Set environment variables
-3. Start Datadog Agent
-4. Run services with ddtrace
-5. Access application
+2. Copy `.env.datadog.example` to `.env.datadog`
+3. Add your Datadog API key and App key from your Datadog account
+4. Source environment variables: `source .env.datadog`
+5. Run services with ddtrace (data goes directly to Datadog cloud)
+6. Access application and verify data in Datadog UI
 
 ## GKE Deployment
 
 1. Create GKE cluster
-2. Deploy Datadog Agent DaemonSet
-3. Apply Kubernetes manifests
-4. Configure Datadog integrations
-5. Import dashboards
+2. Create Kubernetes secrets for DD_API_KEY and DD_APP_KEY
+3. Apply Kubernetes manifests (uses agentless mode)
+4. (Optional) Deploy Datadog Agent DaemonSet for infrastructure metrics
+5. Configure Datadog integrations
+6. Import dashboards
 
 ## Datadog Configuration
 
@@ -1300,22 +1326,28 @@ if __name__ == "__main__":
 
 | `kubernetes-manifests/observability-insights-service.yaml` | **NEW** |
 
-| `kubernetes-manifests/datadog-agent.yaml` | **NEW** |
+| `kubernetes-manifests/datadog-secrets.yaml` | **NEW** - DD credentials |
+
+| `kubernetes-manifests/datadog-agent.yaml` | **NEW** (Optional - for infra metrics) |
+
+| `.env.datadog.example` | **NEW** - Template for Datadog cloud credentials |
 
 ---
 
-## Local Testing Workflow
+## Local Testing Workflow (Agentless Mode)
 
-1. Start Datadog Agent container with API key
-2. Run instrumented services with `ddtrace-run`
-3. Generate load to produce telemetry
-4. Verify data in Datadog UI
-5. Test detection rules trigger correctly
+1. Set environment variables from `.env.datadog` (DD_API_KEY, DD_APP_KEY, DD_SITE, etc.)
+2. Enable agentless mode: `DD_LLMOBS_AGENTLESS_ENABLED=1`
+3. Run instrumented services with `ddtrace-run` (data goes directly to Datadog cloud)
+4. Generate load to produce telemetry
+5. Verify data in Datadog UI at https://app.datadoghq.com (or your DD_SITE)
+6. Test detection rules trigger correctly
 
 ## GKE Deployment
 
-1. Deploy Datadog Agent as DaemonSet
-2. Configure admission controller for auto-instrumentation
-3. Apply Kubernetes manifests with DD env vars
-4. Import dashboard JSON to Datadog
-5. Validate end-to-end flow
+1. Set DD_API_KEY, DD_APP_KEY, DD_SITE as Kubernetes secrets
+2. Configure agentless mode in deployment manifests (`DD_LLMOBS_AGENTLESS_ENABLED=1`)
+3. (Optional) Deploy Datadog Agent as DaemonSet for infrastructure metrics
+4. Apply Kubernetes manifests with DD env vars
+5. Import dashboard JSON to Datadog
+6. Validate end-to-end flow in Datadog cloud UI

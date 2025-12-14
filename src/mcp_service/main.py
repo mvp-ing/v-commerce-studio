@@ -2,10 +2,43 @@ import os
 import logging
 import asyncio
 import json
+import time
 from typing import List, Dict, Any
 import grpc
 from flask import Flask, jsonify, request
 import threading # For running Flask and MCP server concurrently
+
+# ============================================
+# Datadog APM Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+
+# Set service name before patching
+config.service = "mcp-service"
+config.flask["service_name"] = "mcp-service"
+config.grpc["service_name"] = "mcp-service"  # For gRPC client spans
+
+# Initialize Datadog tracing (auto-patches flask, grpc, etc.)
+patch_all()
+
+# Configure logging with Datadog trace correlation
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "mcp-service", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    datefmt='%Y-%m-%dT%H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
+def emit_mcp_metrics(tool_name: str, latency_ms: float, request_count: int = 1, success: bool = True):
+    """Emit custom MCP service metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        span.set_tag("mcp.tool.name", tool_name)
+        span.set_tag("mcp.tool.latency_ms", latency_ms)
+        span.set_tag("mcp.request.count", request_count)
+        span.set_tag("mcp.request.success", success)
+
+# ============================================
 
 # MCP Server Imports
 import mcp.types as mcp_types
@@ -18,14 +51,6 @@ from google.adk.tools.mcp_tool.conversion_utils import adk_to_mcp_tool_type
 # Import generated protobuf classes
 import demo_pb2
 import demo_pb2_grpc
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "message": "%(message)s"}',
-    datefmt='%Y-%m-%dT%H:%M:%S.%fZ'
-)
-logger = logging.getLogger(__name__)
 
 
 class ProductCatalogClient:
@@ -207,6 +232,7 @@ def health_check():
 @flask_app.route('/tools/product_search_tool', methods=['POST'])
 def product_search_tool_http_endpoint():
     """HTTP endpoint for product search tool (for requests-based clients)."""
+    start_time = time.time()
     try:
         data = request.get_json()
         query = data.get("query")
@@ -227,8 +253,15 @@ def product_search_tool_http_endpoint():
             products = [p for p in all_products if category.lower() in [c.lower() for c in p.get("categories", [])]]
         
         result = [format_product_details(p) for p in products[:max_results]]
+        
+        # Emit MCP metrics
+        latency_ms = (time.time() - start_time) * 1000
+        emit_mcp_metrics(tool_name="product_search_tool", latency_ms=latency_ms, success=True)
+        
         return jsonify(result)
     except Exception as e:
+        latency_ms = (time.time() - start_time) * 1000
+        emit_mcp_metrics(tool_name="product_search_tool", latency_ms=latency_ms, success=False)
         logger.error(f"Error in /tools/product_search_tool HTTP endpoint: {e}")
         return jsonify({"error": str(e)}), 500
 

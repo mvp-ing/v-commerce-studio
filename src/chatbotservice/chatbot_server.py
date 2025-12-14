@@ -21,14 +21,57 @@ import time # Added for timestamp for mock behavior events
 from queue import Queue
 import uuid
 
+# ============================================
+# Datadog APM and LLM Observability Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+from ddtrace.llmobs import LLMObs
+
+# Initialize Datadog tracing (auto-patches Flask, grpc, requests)
+config.service = "chatbotservice"
+config.flask["service_name"] = "chatbotservice"
+config.grpc["service_name"] = "chatbotservice"  # For gRPC client spans
+patch_all()
+
+# Initialize LLM Observability (agentless mode - sends directly to Datadog cloud)
+LLMObs.enable(
+    ml_app=os.getenv("DD_LLMOBS_ML_APP", "v-commerce-chatbot"),
+    agentless_enabled=os.getenv("DD_LLMOBS_AGENTLESS_ENABLED", "true").lower() == "true",
+)
+
+# Custom metrics for LLM Observability
+from ddtrace import tracer
+
+def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float, 
+                     quality_score: float = None, model_name: str = "gemini-2.0-flash"):
+    """Emit custom LLM metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        span.set_tag("llm.model", model_name)
+        span.set_tag("llm.tokens.input", input_tokens)
+        span.set_tag("llm.tokens.output", output_tokens)
+        span.set_tag("llm.tokens.total", input_tokens + output_tokens)
+        span.set_tag("llm.request.duration_ms", duration_ms)
+        if quality_score is not None:
+            span.set_tag("llm.response.quality_score", quality_score)
+        
+        # Estimate cost (Gemini 2.0 Flash pricing approximation)
+        # Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
+        input_cost = (input_tokens / 1_000_000) * 0.075
+        output_cost = (output_tokens / 1_000_000) * 0.30
+        total_cost = input_cost + output_cost
+        span.set_tag("llm.tokens.total_cost_usd", total_cost)
+
+# ============================================
+
 # Import generated protobuf classes
 import demo_pb2
 import demo_pb2_grpc
 
-# Configure logging
+# Configure logging with Datadog trace correlation
 logging.basicConfig(
     level=logging.INFO,
-    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "message": "%(message)s"}',
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "chatbotservice", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
     datefmt='%Y-%m-%dT%H:%M:%S.%fZ'
 )
 logger = logging.getLogger(__name__)
@@ -230,6 +273,35 @@ class ChatbotService:
     
     def generate_response(self, user_message: str, conversation_history: List[str] = None) -> Dict[str, Any]:
         """Generate chatbot response using RAG-enhanced Gemini or fallback"""
+        start_time = time.time()
+        
+        # Start LLM Observability span
+        with LLMObs.llm(
+            model_name="gemini-2.0-flash",
+            model_provider="google",
+            name="chatbot.generate_response",
+            ml_app="v-commerce-chatbot"
+        ) as llm_span:
+            # Annotate input
+            LLMObs.annotate(
+                span=llm_span,
+                input_data=user_message,
+                metadata={
+                    "conversation_history_length": len(conversation_history) if conversation_history else 0,
+                    "rag_enabled": self.rag_enabled
+                }
+            )
+            
+            try:
+                return self._generate_response_impl(user_message, conversation_history, start_time, llm_span)
+            except Exception as e:
+                logger.error(f"Error generating response: {str(e)}")
+                LLMObs.annotate(span=llm_span, output_data=f"Error: {str(e)}")
+                raise
+
+    def _generate_response_impl(self, user_message: str, conversation_history: List[str], 
+                                 start_time: float, llm_span) -> Dict[str, Any]:
+        """Internal implementation of generate_response with LLM observability"""
         try:
             # Try RAG-enhanced response first
             if self.rag_enabled and self.rag_manager:
@@ -249,6 +321,20 @@ class ChatbotService:
                     recommended_products = self._extract_product_ids_from_text(rag_response)
                     
                     logger.info(f"RAG-enhanced response: {rag_response}")
+                    
+                    # Emit LLM metrics
+                    duration_ms = (time.time() - start_time) * 1000
+                    # Estimate tokens (rough: 4 chars per token)
+                    input_tokens = len(user_message) // 4
+                    output_tokens = len(rag_response) // 4
+                    emit_llm_metrics(input_tokens, output_tokens, duration_ms)
+                    
+                    # Annotate LLMObs span with output
+                    LLMObs.annotate(
+                        span=llm_span,
+                        output_data=rag_response,
+                        metadata={"rag_enhanced": True, "recommended_products": recommended_products}
+                    )
                     
                     return {
                         'response': rag_response,
@@ -318,12 +404,37 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
             
             final_response_text = response.text
 
-
             # Extract recommended product IDs from response
-            recommended_products = self._extract_product_ids(final_response_text, products) # Use final_response_text
+            recommended_products = self._extract_product_ids(final_response_text, products)
+            
+            # Emit LLM metrics
+            duration_ms = (time.time() - start_time) * 1000
+            # Estimate tokens (rough: 4 chars per token)
+            input_tokens = len(prompt) // 4
+            output_tokens = len(final_response_text) // 4
+            emit_llm_metrics(input_tokens, output_tokens, duration_ms)
+            
+            # Check for potential hallucinations (invalid product IDs)
+            invalid_product_rate = self._calculate_invalid_product_rate(final_response_text, products)
+            if invalid_product_rate > 0:
+                span = tracer.current_span()
+                if span:
+                    span.set_tag("llm.recommendation.invalid_product_rate", invalid_product_rate)
+            
+            # Annotate LLMObs span with output
+            LLMObs.annotate(
+                span=llm_span,
+                output_data=final_response_text,
+                metadata={
+                    "rag_enhanced": False, 
+                    "recommended_products": recommended_products,
+                    "products_considered": len(products),
+                    "invalid_product_rate": invalid_product_rate
+                }
+            )
 
             return {
-                'response': final_response_text, # Use final_response_text
+                'response': final_response_text,
                 'recommended_products': recommended_products,
                 'total_products_considered': len(products),
                 'rag_enhanced': False
@@ -398,6 +509,24 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
                 matches.append(product_id)
 
         return matches
+    
+    def _calculate_invalid_product_rate(self, response_text: str, valid_products: List[Dict[str, Any]]) -> float:
+        """Calculate the rate of invalid product IDs mentioned in the response (hallucination detection)"""
+        import re
+        # Extract all product IDs mentioned in the response
+        product_id_pattern = r'\[([A-Z0-9]+)\]'
+        mentioned_ids = re.findall(product_id_pattern, response_text)
+        
+        if not mentioned_ids:
+            return 0.0
+        
+        # Get valid product IDs
+        valid_ids = {p['id'] for p in valid_products}
+        
+        # Count invalid IDs
+        invalid_count = sum(1 for pid in mentioned_ids if pid not in valid_ids)
+        
+        return invalid_count / len(mentioned_ids) if mentioned_ids else 0.0
 
     def get_or_create_session(self, session_id: str = None) -> str:
         """Get existing session or create a new one"""

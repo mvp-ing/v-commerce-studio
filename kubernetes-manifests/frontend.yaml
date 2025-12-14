@@ -82,6 +82,35 @@ spec:
             #   value: "aws"
             - name: ENABLE_PROFILER
               value: '0'
+            # Enable native Datadog tracing (dd-trace-go)
+            - name: ENABLE_TRACING
+              value: '1'
+            - name: DD_AGENT_HOST
+              value: 'datadog-agent'
+            - name: DD_TRACE_AGENT_PORT
+              value: '8126'
+            - name: DD_SERVICE
+              value: 'frontend'
+            - name: DD_ENV
+              value: 'hackathon'
+            - name: DD_VERSION
+              value: '1.0.0'
+            - name: DD_SITE
+              valueFrom:
+                secretKeyRef:
+                  name: datadog-secrets
+                  key: DD_SITE
+            # Datadog RUM Configuration
+            - name: DD_RUM_APPLICATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: datadog-secrets
+                  key: DD_RUM_APPLICATION_ID
+            - name: DD_RUM_CLIENT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: datadog-secrets
+                  key: DD_RUM_CLIENT_TOKEN
           # - name: CYMBAL_BRANDING
           #   value: "true"
           # - name: ENABLE_ASSISTANT

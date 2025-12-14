@@ -7,3 +7,5 @@ flask-cors
 gunicorn
 requests
 Pillow
+# Datadog APM
+ddtrace>=2.10.0

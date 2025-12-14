@@ -7,7 +7,12 @@ WORKDIR /src
 
 # restore dependencies
 COPY go.mod go.sum ./
-RUN go mod download
+# Use multiple proxies with fallback to direct, and retry on failure
+ENV GOPROXY=https://proxy.golang.org,https://goproxy.io,direct
+RUN for i in 1 2 3 4 5; do \
+      go mod download && break || \
+      (echo "Attempt $i failed, retrying in 3s..." && sleep 3); \
+    done
 
 COPY . .
 
@@ -24,6 +29,15 @@ COPY --from=builder /checkoutservice /src/checkoutservice
 # Default behavior - a failure prints a stack trace for the current goroutine.
 # See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
+
+# Datadog APM Configuration (for OTLP trace tagging)
+ENV DD_SERVICE=checkoutservice
+ENV DD_ENV=hackathon
+ENV DD_VERSION=1.0.0
+
+# OpenTelemetry Resource Attributes (used by OTLP exporter)
+ENV OTEL_SERVICE_NAME=checkoutservice
+ENV OTEL_RESOURCE_ATTRIBUTES=service.name=checkoutservice,service.version=1.0.0,deployment.environment=hackathon
 
 EXPOSE 5050
 ENTRYPOINT ["/src/checkoutservice"]

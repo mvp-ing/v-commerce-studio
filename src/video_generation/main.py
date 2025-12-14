@@ -1,15 +1,45 @@
 import os
 import logging
+import time
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from video_generator import VideoGenerator
 
+# ============================================
+# Datadog APM Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+
+# Set service name before patching
+config.service = "video-generation"
+config.flask["service_name"] = "video-generation"
+
+# Initialize Datadog tracing (auto-patches flask, requests, etc.)
+patch_all()
+
+# Configure logging with Datadog trace correlation
 logging.basicConfig(
     level=logging.INFO,
-    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "message": "%(message)s"}',
-    datefmt='%Y-%m-%dT%H:%M:%S.%fZ'
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "video-generation", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    datefmt='%Y-%m-%dT%H:%M:%S'
 )
 logger = logging.getLogger(__name__)
+
+def emit_video_metrics(generation_duration_ms: float = None, queue_depth: int = None, 
+                       product_id: str = None, status: str = None):
+    """Emit custom video generation metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        if generation_duration_ms is not None:
+            span.set_tag("video.generation.duration_ms", generation_duration_ms)
+        if queue_depth is not None:
+            span.set_tag("video.queue.depth", queue_depth)
+        if product_id:
+            span.set_tag("video.product_id", product_id)
+        if status:
+            span.set_tag("video.status", status)
+
+# ============================================
 
 app = Flask(__name__)
 CORS(app)
@@ -67,6 +97,7 @@ def search_products():
 @app.route('/generate-ad', methods=['POST'])
 def generate_ad():
     """Start video advertisement generation for a product"""
+    start_time = time.time()
     try:
         data = request.get_json()
         product_id = data.get('product_id')
@@ -80,6 +111,10 @@ def generate_ad():
         # Start video generation
         job_id = video_generator.start_video_generation(product_id)
         
+        # Emit metrics for video generation start
+        emit_video_metrics(product_id=product_id, status="started")
+        logger.info(f"Video generation started for product {product_id}, job_id: {job_id}")
+        
         return jsonify({
             'status': 'success',
             'job_id': job_id,
@@ -87,9 +122,11 @@ def generate_ad():
         })
     
     except ValueError as e:
+        emit_video_metrics(product_id=product_id if 'product_id' in dir() else None, status="error")
         return jsonify({'error': str(e)}), 404
     except Exception as e:
         logger.error(f"Error starting video generation: {e}")
+        emit_video_metrics(product_id=product_id if 'product_id' in dir() else None, status="error")
         return jsonify({'error': 'Failed to start video generation'}), 500
 
 @app.route('/video-status/<job_id>', methods=['GET'])
@@ -100,6 +137,10 @@ def video_status(job_id):
             return jsonify({'error': 'Video generator not initialized'}), 500
         
         status = video_generator.check_job_status(job_id)
+        
+        # Emit status check metrics
+        emit_video_metrics(status=status.get('status', 'unknown'))
+        
         return jsonify(status)
     
     except Exception as e:

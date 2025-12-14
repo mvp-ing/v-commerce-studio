@@ -12,6 +12,14 @@ const logger = pino({
   },
 });
 
+// Get tracer for span creation
+let tracer;
+try {
+  tracer = require('dd-trace');
+} catch (e) {
+  tracer = null;
+}
+
 class CreditCardError extends Error {
   constructor(message) {
     super(message);
@@ -52,16 +60,43 @@ class ExpiredCreditCard extends CreditCardError {
 module.exports = function charge(request) {
   const { amount, credit_card: creditCard } = request;
   const cardNumber = creditCard.credit_card_number;
+
+  // Create a span for card validation
+  let validationSpan;
+  if (tracer) {
+    validationSpan = tracer.startSpan('card.validation', {
+      childOf: tracer.scope().active(),
+      tags: {
+        'resource.name': 'CardValidation',
+      },
+    });
+  }
+
   const cardInfo = cardValidator(cardNumber);
   const { card_type: cardType, valid } = cardInfo.getCardDetails();
 
+  if (validationSpan) {
+    validationSpan.setTag('card.type', cardType || 'unknown');
+    validationSpan.setTag('card.valid', valid);
+  }
+
   if (!valid) {
+    if (validationSpan) {
+      validationSpan.setTag('error', true);
+      validationSpan.setTag('error.type', 'InvalidCreditCard');
+      validationSpan.finish();
+    }
     throw new InvalidCreditCard();
   }
 
   // Only VISA and mastercard is accepted, other card types (AMEX, dinersclub) will
   // throw UnacceptedCreditCard error.
   if (!(cardType === 'visa' || cardType === 'mastercard')) {
+    if (validationSpan) {
+      validationSpan.setTag('error', true);
+      validationSpan.setTag('error.type', 'UnacceptedCreditCard');
+      validationSpan.finish();
+    }
     throw new UnacceptedCreditCard(cardType);
   }
 
@@ -72,14 +107,27 @@ module.exports = function charge(request) {
     credit_card_expiration_year: year,
     credit_card_expiration_month: month,
   } = creditCard;
+
   if (currentYear * 12 + currentMonth > year * 12 + month) {
+    if (validationSpan) {
+      validationSpan.setTag('error', true);
+      validationSpan.setTag('error.type', 'ExpiredCreditCard');
+      validationSpan.finish();
+    }
     throw new ExpiredCreditCard(cardNumber.replace('-', ''), month, year);
   }
+
+  if (validationSpan) {
+    validationSpan.setTag('validation.success', true);
+    validationSpan.finish();
+  }
+
+  const transactionId = uuidv4();
 
   logger.info(`Transaction processed: ${cardType} ending ${cardNumber.substr(
     -4
   )} \
     Amount: ${amount.currency_code}${amount.units}.${amount.nanos}`);
 
-  return { transaction_id: uuidv4() };
+  return { transaction_id: transactionId };
 };
