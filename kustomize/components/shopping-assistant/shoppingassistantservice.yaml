@@ -50,6 +50,46 @@ spec:
               value: PROJECT_ID_VAL
             - name: REGION
               value: REGION_VAL
+            # Datadog LLM Observability (Agentless Mode)
+            - name: DD_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datadog-secrets
+                  key: api-key
+            - name: DD_APP_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: datadog-secrets
+                  key: app-key
+            - name: DD_SITE
+              valueFrom:
+                configMapKeyRef:
+                  name: datadog-config
+                  key: dd-site
+            - name: DD_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: datadog-config
+                  key: dd-env
+            - name: DD_SERVICE
+              value: 'shoppingassistantservice'
+            - name: DD_LLMOBS_ENABLED
+              value: 'true'
+            - name: DD_LLMOBS_AGENTLESS_ENABLED
+              value: 'true'
+            - name: DD_LLMOBS_ML_APP
+              value: 'v-commerce-shopping-assistant'
+            - name: DD_TRACE_ENABLED
+              value: 'true'
+            - name: DD_LOGS_INJECTION
+              value: 'true'
+            # Point to Datadog Agent running on the same node
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_TRACE_AGENT_PORT
+              value: '8126'
           resources:
             requests:
               cpu: 100m

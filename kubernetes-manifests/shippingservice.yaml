@@ -36,6 +36,15 @@ spec:
               value: '50051'
             - name: DISABLE_PROFILER
               value: '1'
+            # Enable OpenTelemetry tracing to Datadog Agent
+            - name: DISABLE_TRACING
+              value: ''
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: 'http://datadog-agent:4317'
+            - name: OTEL_SERVICE_NAME
+              value: 'shippingservice'
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: 'deployment.environment=hackathon,service.version=1.0.0'
           readinessProbe:
             periodSeconds: 5
             grpc:

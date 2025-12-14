@@ -56,7 +56,7 @@ todos: []
 
 |---|------|--------|
 
-| S0 | Configure Datadog cloud account credentials (DD_API_KEY, DD_SITE) + enable agentless mode | ⬜ Pending |
+| S0 | Configure Datadog cloud account credentials (DD_API_KEY, DD_SITE) + enable agentless mode | ✅ Complete |
 
 ### 👤 PERSON A TASKS (9 tasks - one at a time)
 
@@ -64,9 +64,9 @@ todos: []
 
 |---|------|--------|
 
-| A1 | Instrument 3 LLM services (chatbotservice, peau_agent, shoppingassistantservice) with ddtrace + custom LLM metrics | ⬜ Pending |
+| A1 | Instrument 3 LLM services (chatbotservice, peau_agent, shoppingassistantservice) with ddtrace + custom LLM metrics | ✅ Complete |
 
-| A2 | Instrument Go services (frontend, checkoutservice, productcatalogservice, shippingservice) with dd-trace-go | ⬜ Pending |
+| A2 | Instrument Go services (frontend, checkoutservice, productcatalogservice, shippingservice) with OTLP to Datadog | ✅ Complete |
 
 | A3 | Instrument Python supporting services (adservice, cartservice, emailservice, recommendationservice, tryonservice, video_generation, mcp_service) | ⬜ Pending |
 

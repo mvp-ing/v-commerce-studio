@@ -7,7 +7,12 @@ ARG TARGETARCH
 WORKDIR /src
 # restore dependencies
 COPY go.mod go.sum ./
-RUN go mod download
+# Use multiple proxies with fallback to direct, and retry on failure
+ENV GOPROXY=https://proxy.golang.org,https://goproxy.io,direct
+RUN for i in 1 2 3 4 5; do \
+      go mod download && break || \
+      (echo "Attempt $i failed, retrying in 5s..." && sleep 3); \
+    done
 COPY . .
 
 # Skaffold passes in debug-oriented compiler flags

@@ -38,6 +38,15 @@ EXPOSE 8080 8081
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
+# Datadog LLM Observability environment variables (agentless mode)
+ENV DD_LLMOBS_ENABLED=1
+ENV DD_LLMOBS_AGENTLESS_ENABLED=1
+ENV DD_LLMOBS_ML_APP=v-commerce-chatbot
+ENV DD_SERVICE=chatbotservice
+ENV DD_ENV=hackathon
+ENV DD_TRACE_ENABLED=1
+ENV DD_LOGS_INJECTION=true
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1

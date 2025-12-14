@@ -29,4 +29,13 @@ COPY . .
 ENV PORT "8080"
 EXPOSE 8080
 
+# Datadog LLM Observability environment variables (agentless mode)
+ENV DD_LLMOBS_ENABLED=1
+ENV DD_LLMOBS_AGENTLESS_ENABLED=1
+ENV DD_LLMOBS_ML_APP=v-commerce-shopping-assistant
+ENV DD_SERVICE=shoppingassistantservice
+ENV DD_ENV=hackathon
+ENV DD_TRACE_ENABLED=1
+ENV DD_LOGS_INJECTION=true
+
 ENTRYPOINT ["python", "shoppingassistantservice.py"]

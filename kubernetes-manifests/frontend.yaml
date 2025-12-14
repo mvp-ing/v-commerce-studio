@@ -82,6 +82,15 @@ spec:
             #   value: "aws"
             - name: ENABLE_PROFILER
               value: '0'
+            # Enable OpenTelemetry tracing to Datadog Agent
+            - name: ENABLE_TRACING
+              value: '1'
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: 'http://datadog-agent:4317'
+            - name: OTEL_SERVICE_NAME
+              value: 'frontend'
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: 'deployment.environment=hackathon,service.version=1.0.0'
           # - name: CYMBAL_BRANDING
           #   value: "true"
           # - name: ENABLE_ASSISTANT
