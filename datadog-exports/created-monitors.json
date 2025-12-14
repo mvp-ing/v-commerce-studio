@@ -1,0 +1,27 @@
+[
+  {
+    "name": "[V-Commerce] LLM Hallucination Detection - Invalid Product Recommendations",
+    "id": 17066716,
+    "type": "metric alert"
+  },
+  {
+    "name": "[V-Commerce] LLM Prompt Injection / Adversarial Input Detection",
+    "id": 17066717,
+    "type": "metric alert"
+  },
+  {
+    "name": "[V-Commerce] LLM Cost-Per-Conversion Anomaly Detection",
+    "id": 17066718,
+    "type": "metric alert"
+  },
+  {
+    "name": "[V-Commerce] LLM Response Quality Degradation Alert",
+    "id": 17066719,
+    "type": "metric alert"
+  },
+  {
+    "name": "[V-Commerce] AI-Powered Predictive Capacity Alert",
+    "id": 17066720,
+    "type": "metric alert"
+  }
+]
