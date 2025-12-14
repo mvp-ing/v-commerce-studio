@@ -1,8 +1,6 @@
- 
-
 FROM --platform=$BUILDPLATFORM node:20.18.1-alpine@sha256:24fb6aa7020d9a20b00d6da6d1714187c45ed00d1eb4adb01395843c338b9372 AS builder
 
-# Some packages (e.g. @google-cloud/profiler) require additional
+# Some packages (e.g. @google-cloud/profiler, dd-trace) require additional
 # deps for post-install scripts
 RUN apk add --update --no-cache \
     python3 \
@@ -27,4 +25,12 @@ COPY . .
 
 EXPOSE 7000
 
-ENTRYPOINT [ "node", "server.js" ]
+# Datadog APM environment variables (configured via K8s manifest or docker-compose)
+ENV DD_SERVICE=currencyservice
+ENV DD_ENV=production
+ENV DD_LOGS_INJECTION=true
+ENV DD_RUNTIME_METRICS_ENABLED=true
+ENV DD_PROFILING_ENABLED=true
+
+# Use --require dd-trace/init to ensure tracer is loaded first
+ENTRYPOINT [ "node", "--require", "dd-trace/init", "server.js" ]

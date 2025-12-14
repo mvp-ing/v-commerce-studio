@@ -1,3 +1,30 @@
+// Datadog APM - must be initialized before any other imports
+const tracer = require('dd-trace').init({
+  service: process.env.DD_SERVICE || 'currencyservice',
+  env: process.env.DD_ENV || 'production',
+  logInjection: true,
+  runtimeMetrics: true,
+  profiling: true,
+});
+
+// Initialize custom metrics
+const { dogstatsd } = require('dd-trace');
+const StatsD = require('hot-shots');
+
+// Create StatsD client for custom metrics (agentless mode uses Datadog API)
+const statsd = new StatsD({
+  host: process.env.DD_AGENT_HOST || 'localhost',
+  port: process.env.DD_DOGSTATSD_PORT || 8125,
+  prefix: 'currency.',
+  globalTags: {
+    env: process.env.DD_ENV || 'production',
+    service: 'currencyservice',
+  },
+  errorHandler: (error) => {
+    console.error('StatsD error:', error);
+  },
+});
+
 const pino = require('pino');
 const logger = pino({
   name: 'currencyservice-server',
@@ -6,6 +33,23 @@ const logger = pino({
     level(logLevelString, logLevelNum) {
       return { severity: logLevelString };
     },
+  },
+  // Add trace correlation for Datadog
+  mixin() {
+    const span = tracer.scope().active();
+    if (span) {
+      const traceId = span.context().toTraceId();
+      const spanId = span.context().toSpanId();
+      return {
+        dd: {
+          trace_id: traceId,
+          span_id: spanId,
+          service: 'currencyservice',
+          env: process.env.DD_ENV || 'production',
+        },
+      };
+    }
+    return {};
   },
 });
 
@@ -70,6 +114,9 @@ const PORT = process.env.PORT;
 const shopProto = _loadProto(MAIN_PROTO_PATH).hipstershop;
 const healthProto = _loadProto(HEALTH_PROTO_PATH).grpc.health.v1;
 
+// Track currency data last update time
+let currencyDataLastUpdate = Date.now();
+
 /**
  * Helper function that loads a protobuf file.
  */
@@ -90,6 +137,9 @@ function _loadProto(path) {
  */
 function _getCurrencyData(callback) {
   const data = require('./data/currency_conversion.json');
+  // Track last update of currency data (in production, this would be from actual data fetch)
+  currencyDataLastUpdate = Date.now();
+  statsd.gauge('rate.last_update', currencyDataLastUpdate / 1000);
   callback(data);
 }
 
@@ -109,9 +159,21 @@ function _carry(amount) {
  * Lists the supported currencies
  */
 function getSupportedCurrencies(call, callback) {
+  const span = tracer.startSpan('getSupportedCurrencies', {
+    childOf: tracer.scope().active(),
+    tags: {
+      'resource.name': 'CurrencyService.GetSupportedCurrencies',
+    },
+  });
+
   logger.info('Getting supported currencies...');
+  statsd.increment('request.count', 1, { operation: 'getSupportedCurrencies' });
+
   _getCurrencyData((data) => {
-    callback(null, { currency_codes: Object.keys(data) });
+    const currencies = Object.keys(data);
+    span.setTag('currencies.count', currencies.length);
+    span.finish();
+    callback(null, { currency_codes: currencies });
   });
 }
 
@@ -119,9 +181,23 @@ function getSupportedCurrencies(call, callback) {
  * Converts between currencies
  */
 function convert(call, callback) {
+  const startTime = Date.now();
+  const span = tracer.startSpan('convert', {
+    childOf: tracer.scope().active(),
+    tags: {
+      'resource.name': 'CurrencyService.Convert',
+    },
+  });
+
+  statsd.increment('request.count', 1, { operation: 'convert' });
+
   try {
     _getCurrencyData((data) => {
       const request = call.request;
+
+      span.setTag('from_currency', request.from.currency_code);
+      span.setTag('to_currency', request.to_code);
+      span.setTag('amount.units', request.from.units);
 
       // Convert: from_currency --> EUR
       const from = request.from;
@@ -142,10 +218,35 @@ function convert(call, callback) {
       result.nanos = Math.floor(result.nanos);
       result.currency_code = request.to_code;
 
+      // Track conversion latency
+      const latency = Date.now() - startTime;
+      statsd.histogram('conversion.latency', latency, {
+        from: request.from.currency_code,
+        to: request.to_code,
+      });
+      statsd.increment('conversion.count', 1, {
+        from: request.from.currency_code,
+        to: request.to_code,
+        success: 'true',
+      });
+
+      span.setTag('result.units', result.units);
+      span.setTag('conversion.latency_ms', latency);
+      span.finish();
+
       logger.info(`conversion request successful`);
       callback(null, result);
     });
   } catch (err) {
+    const latency = Date.now() - startTime;
+    statsd.histogram('conversion.latency', latency, { error: 'true' });
+    statsd.increment('conversion.count', 1, { success: 'false' });
+    statsd.increment('error.count', 1, { operation: 'convert' });
+
+    span.setTag('error', true);
+    span.setTag('error.message', err.message);
+    span.finish();
+
     logger.error(`conversion request failed: ${err}`);
     callback(err.message);
   }
@@ -164,6 +265,8 @@ function check(call, callback) {
  */
 function main() {
   logger.info(`Starting gRPC server on port ${PORT}...`);
+  logger.info('Datadog APM tracing enabled for currencyservice');
+
   const server = new grpc.Server();
   server.addService(shopProto.CurrencyService.service, {
     getSupportedCurrencies,
@@ -177,6 +280,10 @@ function main() {
     function () {
       logger.info(`CurrencyService gRPC server started on port ${PORT}`);
       server.start();
+
+      // Emit initial metrics
+      statsd.gauge('service.status', 1);
+      statsd.gauge('rate.last_update', currencyDataLastUpdate / 1000);
     }
   );
 }
