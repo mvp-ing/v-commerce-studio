@@ -72,7 +72,7 @@ todos: []
 
 | A4 | Instrument Node.js services (currencyservice, paymentservice) with dd-trace-js | ✅ Complete |
 
-| A5 | Configure 5 detection rules in Datadog (hallucination, injection, cost-per-conversion, quality, predictive) | ⬜ Pending |
+| A5 | Configure 5 detection rules in Datadog (hallucination, injection, cost-per-conversion, quality, predictive) | ✅ Complete |
 
 | A6 | Build Datadog dashboard with LLM metrics, health overview, AI insights panels | ⬜ Pending |
 
@@ -176,6 +176,7 @@ Final Day:      🤝 FINAL SYNC (Both together)
 - [ ] Enable LLM Observability in Datadog UI (Integrations → LLM Observability)
 - [ ] Verify API connectivity with a test request
 - [ ] Create shared `.env.datadog` file for team
+
 ```bash
 # .env.datadog (shared config - using Datadog Cloud Account)
 DD_API_KEY=<your-api-key-from-datadog-account>
@@ -193,7 +194,6 @@ DD_LLMOBS_ML_APP=v-commerce-llm
 DD_TRACE_ENABLED=1
 DD_AGENT_HOST=  # Leave empty for agentless
 ```
-
 
 ### Verify Setup
 
