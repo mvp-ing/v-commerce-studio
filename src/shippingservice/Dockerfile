@@ -30,5 +30,14 @@ ENV APP_PORT=50051
 # See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
 
+# Datadog APM Configuration (for OTLP trace tagging)
+ENV DD_SERVICE=shippingservice
+ENV DD_ENV=hackathon
+ENV DD_VERSION=1.0.0
+
+# OpenTelemetry Resource Attributes (used by OTLP exporter)
+ENV OTEL_SERVICE_NAME=shippingservice
+ENV OTEL_RESOURCE_ATTRIBUTES=service.name=shippingservice,service.version=1.0.0,deployment.environment=hackathon
+
 EXPOSE 50051
 ENTRYPOINT ["/src/shippingservice"]

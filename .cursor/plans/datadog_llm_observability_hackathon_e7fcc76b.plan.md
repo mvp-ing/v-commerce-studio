@@ -68,7 +68,7 @@ todos: []
 
 | A2 | Instrument Go services (frontend, checkoutservice, productcatalogservice, shippingservice) with OTLP to Datadog | ✅ Complete |
 
-| A3 | Instrument Python supporting services (adservice, cartservice, emailservice, recommendationservice, tryonservice, video_generation, mcp_service) | ⬜ Pending |
+| A3 | Instrument Python supporting services (adservice, cartservice, emailservice, recommendationservice, tryonservice, video_generation, mcp_service) | ✅ Complete |
 
 | A4 | Instrument Node.js services (currencyservice, paymentservice) with dd-trace-js | ⬜ Pending |
 
@@ -176,7 +176,6 @@ Final Day:      🤝 FINAL SYNC (Both together)
 - [ ] Enable LLM Observability in Datadog UI (Integrations → LLM Observability)
 - [ ] Verify API connectivity with a test request
 - [ ] Create shared `.env.datadog` file for team
-
 ```bash
 # .env.datadog (shared config - using Datadog Cloud Account)
 DD_API_KEY=<your-api-key-from-datadog-account>
@@ -194,6 +193,7 @@ DD_LLMOBS_ML_APP=v-commerce-llm
 DD_TRACE_ENABLED=1
 DD_AGENT_HOST=  # Leave empty for agentless
 ```
+
 
 ### Verify Setup
 

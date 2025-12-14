@@ -22,6 +22,13 @@ RUN mkdir -p /app/videos
 ENV PORT=8080
 ENV PYTHONUNBUFFERED=1
 
+# Datadog APM Configuration
+ENV DD_SERVICE=video-generation
+ENV DD_ENV=hackathon
+ENV DD_VERSION=1.0.0
+ENV DD_TRACE_ENABLED=true
+ENV DD_LOGS_INJECTION=true
+
 EXPOSE ${PORT}
 
-CMD exec python main.py
+CMD exec ddtrace-run python main.py

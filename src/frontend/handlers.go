@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"context"
@@ -42,6 +42,11 @@ var (
 			"hasAnyCategory":     hasAnyCategory,
 		}).ParseGlob("templates/*.html"))
 	plat platformDetails
+
+	// Datadog RUM Configuration
+	ddRumClientToken   = os.Getenv("DD_RUM_CLIENT_TOKEN")
+	ddRumApplicationId = os.Getenv("DD_RUM_APPLICATION_ID")
+	ddSite             = os.Getenv("DD_SITE")
 )
 
 var validEnvs = []string{"local", "gcp", "azure", "aws", "onprem", "alibaba"}
@@ -885,6 +890,10 @@ func injectCommonTemplateData(r *http.Request, payload map[string]interface{}) m
 		"currentYear":       time.Now().Year(),
 		"baseUrl":           baseUrl,
 		"IsSignedIn":        isUserSignedIn(r),
+		// Datadog RUM Configuration
+		"dd_rum_client_token":   ddRumClientToken,
+		"dd_rum_application_id": ddRumApplicationId,
+		"dd_site":               ddSite,
 	}
 
 	for k, v := range payload {

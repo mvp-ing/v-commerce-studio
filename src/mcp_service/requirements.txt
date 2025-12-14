@@ -4,4 +4,6 @@ Flask
 mcp
 Flask-Cors
 google-adk
+# Datadog APM
+ddtrace>=2.10.0
 

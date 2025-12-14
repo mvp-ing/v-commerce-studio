@@ -13,7 +13,7 @@ spec:
       labels:
         app: tryonservice
       annotations:
-        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+        sidecar.istio.io/rewriteAppHTTPProbers: 'true'
     spec:
       securityContext:
         fsGroup: 1000
@@ -21,38 +21,53 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
       containers:
-      - name: server
-        image: tryonservice
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 8080
-        readinessProbe:
-          httpGet:
-            path: /_healthz
-            port: 8080
-          initialDelaySeconds: 5
-        livenessProbe:
-          httpGet:
-            path: /_healthz
-            port: 8080
-          initialDelaySeconds: 10
-        env:
-        - name: PORT
-          value: "8080"
-        - name: TRYON_MODEL
-          value: "gemini-2.5-flash-image-preview"
-        - name: GEMINI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: tryonservice-secrets
-              key: GEMINI_API_KEY
-        resources:
-          requests:
-            cpu: 50m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 256Mi
+        - name: server
+          image: tryonservice
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /_healthz
+              port: 8080
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /_healthz
+              port: 8080
+            initialDelaySeconds: 10
+          env:
+            - name: PORT
+              value: '8080'
+            - name: TRYON_MODEL
+              value: 'gemini-2.5-flash-image-preview'
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tryonservice-secrets
+                  key: GEMINI_API_KEY
+            # Datadog APM Configuration
+            - name: DD_SERVICE
+              value: 'tryonservice'
+            - name: DD_ENV
+              value: 'hackathon'
+            - name: DD_VERSION
+              value: '1.0.0'
+            - name: DD_TRACE_ENABLED
+              value: 'true'
+            - name: DD_AGENT_HOST
+              value: 'datadog-agent'
+            - name: DD_TRACE_AGENT_PORT
+              value: '8126'
+            - name: DD_LOGS_INJECTION
+              value: 'true'
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
 ---
 apiVersion: v1
 kind: Service
@@ -65,6 +80,6 @@ spec:
   selector:
     app: tryonservice
   ports:
-  - name: http
-    port: 8080
-    targetPort: 8080
+    - name: http
+      port: 8080
+      targetPort: 8080

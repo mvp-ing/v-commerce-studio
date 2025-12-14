@@ -18,16 +18,38 @@ import demo_pb2_grpc
 from grpc_health.v1 import health_pb2
 from grpc_health.v1 import health_pb2_grpc
 
-from opentelemetry import trace
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+# ============================================
+# Datadog APM Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+import logging
 
-import googlecloudprofiler
+# Set service name before patching
+config.service = "emailservice"
+config.grpc["service_name"] = "emailservice"  # For gRPC client spans
+config.grpc_server["service_name"] = "emailservice"  # For gRPC server spans
 
-from logger import getJSONLogger
-logger = getJSONLogger('emailservice-server')
+# Initialize Datadog tracing (auto-patches grpc, jinja2, etc.)
+patch_all()
+
+# Configure logging with Datadog trace correlation
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "emailservice", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    datefmt='%Y-%m-%dT%H:%M:%S'
+)
+logger = logging.getLogger('emailservice-server')
+
+def emit_email_metrics(email_sent: bool, render_time_ms: float = None, delivery_success: bool = True):
+    """Emit custom email service metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        span.set_tag("email.sent.count", 1 if email_sent else 0)
+        span.set_tag("email.delivery.success", delivery_success)
+        if render_time_ms is not None:
+            span.set_tag("email.render.duration_ms", render_time_ms)
+
+# ============================================
 
 # Loads confirmation email template from file
 env = Environment(
@@ -94,7 +116,13 @@ class EmailService(BaseEmailService):
 
 class DummyEmailService(BaseEmailService):
   def SendOrderConfirmation(self, request, context):
+    start_time = time.time()
     logger.info('A request to send order confirmation email to {} has been received.'.format(request.email))
+    
+    # Emit metrics for the email send operation
+    render_time = (time.time() - start_time) * 1000
+    emit_email_metrics(email_sent=True, render_time_ms=render_time, delivery_success=True)
+    
     return demo_pb2.Empty()
 
 class HealthCheck():
@@ -152,35 +180,10 @@ def initStackdriverProfiling():
 if __name__ == '__main__':
   logger.info('starting the email service in dummy mode.')
 
-  # Profiler
-  try:
-    if "DISABLE_PROFILER" in os.environ:
-      raise KeyError()
-    else:
-      logger.info("Profiler enabled.")
-      initStackdriverProfiling()
-  except KeyError:
-      logger.info("Profiler disabled.")
+  # Profiler disabled - using Datadog APM instead
+  logger.info("Profiler disabled - using Datadog APM.")
 
-  # Tracing
-  try:
-    if os.environ["ENABLE_TRACING"] == "1":
-      otel_endpoint = os.getenv("COLLECTOR_SERVICE_ADDR", "localhost:4317")
-      trace.set_tracer_provider(TracerProvider())
-      trace.get_tracer_provider().add_span_processor(
-        BatchSpanProcessor(
-            OTLPSpanExporter(
-            endpoint = otel_endpoint,
-            insecure = True
-          )
-        )
-      )
-    grpc_server_instrumentor = GrpcInstrumentorServer()
-    grpc_server_instrumentor.instrument()
-
-  except (KeyError, DefaultCredentialsError):
-      logger.info("Tracing disabled.")
-  except Exception as e:
-      logger.warn(f"Exception on Cloud Trace setup: {traceback.format_exc()}, tracing disabled.") 
+  # Tracing is handled by ddtrace.patch_all() automatically
+  logger.info("Datadog APM tracing enabled via ddtrace.")
   
   start(dummy_mode = True)

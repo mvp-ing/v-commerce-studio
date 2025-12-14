@@ -16,6 +16,10 @@ import (
 
 	pb "github.com/GoogleCloudPlatform/microservices-demo/src/shippingservice/genproto"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+
+	// Datadog native tracing
+	grpctrace "gopkg.in/DataDog/dd-trace-go.v1/contrib/google.golang.org/grpc"
+	"gopkg.in/DataDog/dd-trace-go.v1/ddtrace/tracer"
 )
 
 const (
@@ -40,9 +44,9 @@ func init() {
 
 func main() {
 	if os.Getenv("DISABLE_TRACING") == "" {
-		log.Info("Tracing enabled, but temporarily unavailable")
-		log.Info("See https://github.com/GoogleCloudPlatform/microservices-demo/issues/422 for more info.")
-		go initTracing()
+		log.Info("Tracing enabled.")
+		initTracing()
+		defer tracer.Stop()
 	} else {
 		log.Info("Tracing disabled.")
 	}
@@ -65,14 +69,12 @@ func main() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	var srv *grpc.Server
-	if os.Getenv("DISABLE_STATS") == "" {
-		log.Info("Stats enabled, but temporarily unavailable")
-		srv = grpc.NewServer()
-	} else {
-		log.Info("Stats disabled.")
-		srv = grpc.NewServer()
-	}
+	// Create gRPC server with Datadog tracing interceptors
+	srv := grpc.NewServer(
+		grpc.UnaryInterceptor(grpctrace.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(grpctrace.StreamServerInterceptor()),
+	)
+
 	svc := &server{}
 	pb.RegisterShippingServiceServer(srv, svc)
 	healthpb.RegisterHealthServer(srv, svc)
@@ -133,11 +135,44 @@ func (s *server) ShipOrder(ctx context.Context, in *pb.ShipOrderRequest) (*pb.Sh
 }
 
 func initStats() {
-	//TODO(arbrown) Implement OpenTelemetry stats
+	//TODO(arbrown) Implement stats
 }
 
 func initTracing() {
-	// TODO(arbrown) Implement OpenTelemetry tracing
+	// Get Datadog Agent address from environment
+	agentHost := os.Getenv("DD_AGENT_HOST")
+	if agentHost == "" {
+		agentHost = "datadog-agent"
+	}
+	agentPort := os.Getenv("DD_TRACE_AGENT_PORT")
+	if agentPort == "" {
+		agentPort = "8126"
+	}
+
+	// Get service configuration
+	serviceName := os.Getenv("DD_SERVICE")
+	if serviceName == "" {
+		serviceName = "shippingservice"
+	}
+	serviceEnv := os.Getenv("DD_ENV")
+	if serviceEnv == "" {
+		serviceEnv = "hackathon"
+	}
+	serviceVersion := os.Getenv("DD_VERSION")
+	if serviceVersion == "" {
+		serviceVersion = "1.0.0"
+	}
+
+	// Start the Datadog tracer
+	tracer.Start(
+		tracer.WithAgentAddr(fmt.Sprintf("%s:%s", agentHost, agentPort)),
+		tracer.WithService(serviceName),
+		tracer.WithEnv(serviceEnv),
+		tracer.WithServiceVersion(serviceVersion),
+		tracer.WithAnalytics(true),
+	)
+
+	log.Infof("Datadog tracer initialized (agent: %s:%s, service: %s)", agentHost, agentPort, serviceName)
 }
 
 func initProfiling(service, version string) {

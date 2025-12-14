@@ -17,14 +17,39 @@ import demo_pb2_grpc
 from grpc_health.v1 import health_pb2
 from grpc_health.v1 import health_pb2_grpc
 
-from opentelemetry import trace
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorClient, GrpcInstrumentorServer
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+# ============================================
+# Datadog APM Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+import logging
 
-from logger import getJSONLogger
-logger = getJSONLogger('recommendationservice-server')
+# Set the service name for Datadog APM
+config.service = "recommendationservice"
+config.grpc["service_name"] = "recommendationservice"  # For gRPC client spans
+config.grpc_server["service_name"] = "recommendationservice"  # For gRPC server spans
+
+# Initialize Datadog tracing (auto-patches grpc, etc.)
+patch_all()
+
+# Configure logging with Datadog trace correlation
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "recommendationservice", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    datefmt='%Y-%m-%dT%H:%M:%S'
+)
+logger = logging.getLogger('recommendationservice-server')
+
+def emit_recommendation_metrics(request_duration_ms: float, results_count: int, cache_hit: bool = False):
+    """Emit custom recommendation service metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        span.set_tag("recommendation.request.duration_ms", request_duration_ms)
+        span.set_tag("recommendation.results.count", results_count)
+        span.set_tag("recommendation.cache.hit", cache_hit)
+        # Calculate cache hit rate (this is a simplified per-request metric)
+        span.set_tag("recommendation.cache.hit_rate", 1.0 if cache_hit else 0.0)
+
+# ============================================
 
 def initStackdriverProfiling():
   project_id = None
@@ -53,6 +78,7 @@ def initStackdriverProfiling():
 
 class RecommendationService(demo_pb2_grpc.RecommendationServiceServicer):
     def ListRecommendations(self, request, context):
+        start_time = time.time()
         max_responses = 5
         # fetch list of products from product catalog stub
         cat_response = product_catalog_stub.ListProducts(demo_pb2.Empty())
@@ -65,6 +91,15 @@ class RecommendationService(demo_pb2_grpc.RecommendationServiceServicer):
         # fetch product ids from indices
         prod_list = [filtered_products[i] for i in indices]
         logger.info("[Recv ListRecommendations] product_ids={}".format(prod_list))
+        
+        # Emit recommendation metrics
+        duration_ms = (time.time() - start_time) * 1000
+        emit_recommendation_metrics(
+            request_duration_ms=duration_ms,
+            results_count=len(prod_list),
+            cache_hit=False  # No caching in current implementation
+        )
+        
         # build and return response
         response = demo_pb2.ListRecommendationsResponse()
         response.product_ids.extend(prod_list)
@@ -82,35 +117,11 @@ class RecommendationService(demo_pb2_grpc.RecommendationServiceServicer):
 if __name__ == "__main__":
     logger.info("initializing recommendationservice")
 
-    try:
-      if "DISABLE_PROFILER" in os.environ:
-        raise KeyError()
-      else:
-        logger.info("Profiler enabled.")
-        initStackdriverProfiling()
-    except KeyError:
-        logger.info("Profiler disabled.")
+    # Profiler disabled - using Datadog APM instead
+    logger.info("Profiler disabled - using Datadog APM.")
 
-    try:
-      grpc_client_instrumentor = GrpcInstrumentorClient()
-      grpc_client_instrumentor.instrument()
-      grpc_server_instrumentor = GrpcInstrumentorServer()
-      grpc_server_instrumentor.instrument()
-      if os.environ["ENABLE_TRACING"] == "1":
-        trace.set_tracer_provider(TracerProvider())
-        otel_endpoint = os.getenv("COLLECTOR_SERVICE_ADDR", "localhost:4317")
-        trace.get_tracer_provider().add_span_processor(
-          BatchSpanProcessor(
-              OTLPSpanExporter(
-              endpoint = otel_endpoint,
-              insecure = True
-            )
-          )
-        )
-    except (KeyError, DefaultCredentialsError):
-        logger.info("Tracing disabled.")
-    except Exception as e:
-        logger.warn(f"Exception on Cloud Trace setup: {traceback.format_exc()}, tracing disabled.") 
+    # Tracing is handled by ddtrace.patch_all() automatically
+    logger.info("Datadog APM tracing enabled via ddtrace.") 
 
     port = os.environ.get('PORT', "8080")
     catalog_addr = os.environ.get('PRODUCT_CATALOG_SERVICE_ADDR', '')

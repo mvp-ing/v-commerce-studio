@@ -31,5 +31,14 @@ COPY products.json .
 # See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
 
+# Datadog APM Configuration (for OTLP trace tagging)
+ENV DD_SERVICE=productcatalogservice
+ENV DD_ENV=hackathon
+ENV DD_VERSION=1.0.0
+
+# OpenTelemetry Resource Attributes (used by OTLP exporter)
+ENV OTEL_SERVICE_NAME=productcatalogservice
+ENV OTEL_RESOURCE_ATTRIBUTES=service.name=productcatalogservice,service.version=1.0.0,deployment.environment=hackathon
+
 EXPOSE 3550
 ENTRYPOINT ["/src/server"]

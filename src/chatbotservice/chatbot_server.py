@@ -24,10 +24,13 @@ import uuid
 # ============================================
 # Datadog APM and LLM Observability Setup
 # ============================================
-from ddtrace import tracer, patch_all
+from ddtrace import tracer, patch_all, config
 from ddtrace.llmobs import LLMObs
 
 # Initialize Datadog tracing (auto-patches Flask, grpc, requests)
+config.service = "chatbotservice"
+config.flask["service_name"] = "chatbotservice"
+config.grpc["service_name"] = "chatbotservice"  # For gRPC client spans
 patch_all()
 
 # Initialize LLM Observability (agentless mode - sends directly to Datadog cloud)
@@ -68,7 +71,7 @@ import demo_pb2_grpc
 # Configure logging with Datadog trace correlation
 logging.basicConfig(
     level=logging.INFO,
-    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "chatbotservice", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
     datefmt='%Y-%m-%dT%H:%M:%S.%fZ'
 )
 logger = logging.getLogger(__name__)

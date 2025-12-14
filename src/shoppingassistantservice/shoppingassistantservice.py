@@ -17,13 +17,12 @@ from langchain_google_alloydb_pg import AlloyDBEngine, AlloyDBVectorStore
 # ============================================
 # Datadog APM and LLM Observability Setup
 # ============================================
-from ddtrace import tracer, patch_all
+from ddtrace import tracer, patch_all, config
 from ddtrace.llmobs import LLMObs
 
-# Configure Datadog tracer with service name
-tracer.configure(
-    service=os.getenv("DD_SERVICE", "shopping-assistant-service"),
-)
+# Set service name before patching
+config.service = "shopping-assistant-service"
+config.flask["service_name"] = "shopping-assistant-service"
 
 # Initialize Datadog tracing (auto-patches Flask, LangChain)
 patch_all()
@@ -54,7 +53,7 @@ def emit_shopping_assistant_metrics(input_tokens: int, output_tokens: int, durat
 # Configure logging with Datadog trace correlation
 logging.basicConfig(
     level=logging.INFO,
-    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "shopping-assistant-service", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
     datefmt='%Y-%m-%dT%H:%M:%S.%fZ'
 )
 logger = logging.getLogger(__name__)

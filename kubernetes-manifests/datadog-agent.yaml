@@ -30,14 +30,6 @@ spec:
               hostPort: 8125
               name: dogstatsdport
               protocol: UDP
-            - containerPort: 4317
-              hostPort: 4317
-              name: otlpgrpc
-              protocol: TCP
-            - containerPort: 4318
-              hostPort: 4318
-              name: otlphttp
-              protocol: TCP
           env:
             - name: DD_API_KEY
               valueFrom:
@@ -67,11 +59,6 @@ spec:
             # Enable LLM Observability
             - name: DD_LLMOBS_ENABLED
               value: 'true'
-            # Enable OTLP receiver for Go services using OpenTelemetry
-            - name: DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_GRPC_ENDPOINT
-              value: '0.0.0.0:4317'
-            - name: DD_OTLP_CONFIG_RECEIVER_PROTOCOLS_HTTP_ENDPOINT
-              value: '0.0.0.0:4318'
             # Kubernetes metadata
             - name: DD_KUBERNETES_KUBELET_NODENAME
               valueFrom:
@@ -161,12 +148,4 @@ spec:
       port: 8125
       targetPort: 8125
       protocol: UDP
-    - name: otlpgrpc
-      port: 4317
-      targetPort: 4317
-      protocol: TCP
-    - name: otlphttp
-      port: 4318
-      targetPort: 4318
-      protocol: TCP
   clusterIP: None

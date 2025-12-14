@@ -16,18 +16,46 @@ from grpc_health.v1 import health_pb2_grpc
 import demo_pb2
 import demo_pb2_grpc
 
-from opentelemetry import trace
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+# ============================================
+# Datadog APM Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+import logging
 
-import googlecloudprofiler
+# Set service name before patching
+config.service = "cartservice"
+config.grpc["service_name"] = "cartservice"  # For gRPC client spans
+config.grpc_server["service_name"] = "cartservice"  # For gRPC server spans
 
-from logger import getJSONLogger
+# Initialize Datadog tracing (auto-patches grpc, redis, etc.)
+patch_all()
+
+# Configure logging with Datadog trace correlation
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "cartservice", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    datefmt='%Y-%m-%dT%H:%M:%S'
+)
+logger = logging.getLogger('cartservice-server')
+
+def emit_cart_metrics(operation: str, user_id: str, item_count: int = 0, redis_latency_ms: float = None):
+    """Emit custom cart service metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        span.set_tag("cart.operation", operation)
+        span.set_tag("cart.user_id", user_id)
+        if operation == "add":
+            span.set_tag("cart.item.add.count", 1)
+        elif operation == "get":
+            span.set_tag("cart.item.count", item_count)
+        elif operation == "empty":
+            span.set_tag("cart.item.remove.count", item_count)
+        if redis_latency_ms is not None:
+            span.set_tag("cart.redis.latency_ms", redis_latency_ms)
+
+# ============================================
+
 from cart_store import create_cart_store, CartStore
-
-logger = getJSONLogger('cartservice-server')
 
 
 class CartService(demo_pb2_grpc.CartServiceServicer):
@@ -38,12 +66,15 @@ class CartService(demo_pb2_grpc.CartServiceServicer):
 
     def AddItem(self, request, context):
         """Add an item to the user's cart."""
+        start_time = time.time()
         try:
             self._store.add_item(
                 user_id=request.user_id,
                 product_id=request.item.product_id,
                 quantity=request.item.quantity
             )
+            redis_latency = (time.time() - start_time) * 1000
+            emit_cart_metrics("add", request.user_id, redis_latency_ms=redis_latency)
             return demo_pb2.Empty()
         except Exception as e:
             logger.error(f"AddItem failed: {e}")
@@ -53,8 +84,13 @@ class CartService(demo_pb2_grpc.CartServiceServicer):
 
     def GetCart(self, request, context):
         """Get the user's cart."""
+        start_time = time.time()
         try:
-            return self._store.get_cart(request.user_id)
+            cart = self._store.get_cart(request.user_id)
+            redis_latency = (time.time() - start_time) * 1000
+            item_count = len(cart.items) if cart and cart.items else 0
+            emit_cart_metrics("get", request.user_id, item_count=item_count, redis_latency_ms=redis_latency)
+            return cart
         except Exception as e:
             logger.error(f"GetCart failed: {e}")
             context.set_code(grpc.StatusCode.INTERNAL)
@@ -63,8 +99,11 @@ class CartService(demo_pb2_grpc.CartServiceServicer):
 
     def EmptyCart(self, request, context):
         """Empty the user's cart."""
+        start_time = time.time()
         try:
             self._store.empty_cart(request.user_id)
+            redis_latency = (time.time() - start_time) * 1000
+            emit_cart_metrics("empty", request.user_id, redis_latency_ms=redis_latency)
             return demo_pb2.Empty()
         except Exception as e:
             logger.error(f"EmptyCart failed: {e}")

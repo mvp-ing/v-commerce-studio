@@ -17,17 +17,39 @@ from grpc_health.v1 import health_pb2_grpc
 import demo_pb2
 import demo_pb2_grpc
 
-from opentelemetry import trace
-from opentelemetry.instrumentation.grpc import GrpcInstrumentorServer
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+# ============================================
+# Datadog APM Setup
+# ============================================
+from ddtrace import tracer, patch_all, config
+import logging
 
-import googlecloudprofiler
+# Set the service name for Datadog APM
+config.service = "adservice"
+config.grpc["service_name"] = "adservice"  # For gRPC client spans
+config.grpc_server["service_name"] = "adservice"  # For gRPC server spans
 
-from logger import getJSONLogger
+# Initialize Datadog tracing (auto-patches grpc, etc.)
+patch_all()
 
-logger = getJSONLogger('adservice-server')
+# Configure logging with Datadog trace correlation
+logging.basicConfig(
+    level=logging.INFO,
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "adservice", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    datefmt='%Y-%m-%dT%H:%M:%S'
+)
+logger = logging.getLogger('adservice-server')
+
+def emit_ad_metrics(ads_requested: int, ads_served: int, categories_matched: int, total_categories: int):
+    """Emit custom ad service metrics to Datadog"""
+    span = tracer.current_span()
+    if span:
+        span.set_tag("ad.request.count", ads_requested)
+        span.set_tag("ad.served.count", ads_served)
+        if total_categories > 0:
+            match_rate = categories_matched / total_categories
+            span.set_tag("ad.category.match_rate", match_rate)
+
+# ============================================
 
 # Maximum number of ads to serve per request
 MAX_ADS_TO_SERVE = 2
@@ -86,11 +108,14 @@ class AdService(demo_pb2_grpc.AdServiceServicer):
         logger.info(f"received ad request (context_keys={context_keys})")
 
         ads = []
+        categories_matched = 0
 
         # If context keys are provided, get ads for those categories
         if context_keys:
             for key in context_keys:
                 category_ads = get_ads_by_category(key)
+                if category_ads:
+                    categories_matched += 1
                 for ad_data in category_ads:
                     ad = demo_pb2.Ad(
                         redirect_url=ad_data["redirect_url"],
@@ -107,6 +132,14 @@ class AdService(demo_pb2_grpc.AdServiceServicer):
                     text=ad_data["text"]
                 )
                 ads.append(ad)
+
+        # Emit ad metrics
+        emit_ad_metrics(
+            ads_requested=1,
+            ads_served=len(ads),
+            categories_matched=categories_matched,
+            total_categories=len(context_keys) if context_keys else 0
+        )
 
         return demo_pb2.AdResponse(ads=ads)
 

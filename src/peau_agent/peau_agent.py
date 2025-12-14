@@ -24,8 +24,11 @@ from google.genai import types
 # ============================================
 # Datadog APM and LLM Observability Setup
 # ============================================
-from ddtrace import tracer, patch_all
+from ddtrace import tracer, patch_all, config
 from ddtrace.llmobs import LLMObs
+
+# Set service name before patching
+config.service = "peau-agent"
 
 # Initialize Datadog tracing
 patch_all()
@@ -58,7 +61,7 @@ def emit_peau_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
 # Configure logging with Datadog trace correlation
 logging.basicConfig(
     level=logging.INFO,
-    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
+    format='{"timestamp": "%(asctime)s", "severity": "%(levelname)s", "service": "peau-agent", "message": "%(message)s", "dd.trace_id": "%(dd.trace_id)s", "dd.span_id": "%(dd.span_id)s"}',
     datefmt='%Y-%m-%dT%H:%M:%S.%fZ'
 )
 logger = logging.getLogger(__name__)

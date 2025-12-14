@@ -14,10 +14,19 @@ FROM base
 # Enable unbuffered logging
 ENV PYTHONUNBUFFERED=1
 
+# Datadog APM Configuration
+ENV DD_SERVICE=recommendationservice
+ENV DD_ENV=hackathon
+ENV DD_VERSION=1.0.0
+ENV DD_TRACE_ENABLED=true
+ENV DD_LOGS_INJECTION=true
+
 WORKDIR /recommendationservice
 
 # Grab packages from builder
 COPY --from=builder /usr/local/lib/python3.12/ /usr/local/lib/python3.12/
+# Copy executables (including ddtrace-run) 
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
 # Add the application
 COPY . .
@@ -26,4 +35,4 @@ COPY . .
 ENV PORT="8080"
 EXPOSE 8080
 
-ENTRYPOINT ["python", "recommendation_server.py"]
+ENTRYPOINT ["ddtrace-run", "python", "recommendation_server.py"]

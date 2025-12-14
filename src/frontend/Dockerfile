@@ -30,5 +30,18 @@ COPY ./static ./static
 # See https://golang.org/pkg/runtime/
 ENV GOTRACEBACK=single
 
+# Datadog APM Configuration (for OTLP trace tagging)
+ENV DD_SERVICE=frontend
+ENV DD_ENV=hackathon
+ENV DD_VERSION=1.0.0
+ENV DD_SITE=us5.datadoghq.com
+
+# Datadog RUM Configuration (set via K8s secrets or deployment)
+# DD_RUM_CLIENT_TOKEN and DD_RUM_APPLICATION_ID must be set at runtime
+
+# OpenTelemetry Resource Attributes (used by OTLP exporter)
+ENV OTEL_SERVICE_NAME=frontend
+ENV OTEL_RESOURCE_ATTRIBUTES=service.name=frontend,service.version=1.0.0,deployment.environment=hackathon
+
 EXPOSE 8080
 ENTRYPOINT ["/src/server"]
