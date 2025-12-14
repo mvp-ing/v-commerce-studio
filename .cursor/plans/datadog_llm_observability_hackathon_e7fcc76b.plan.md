@@ -74,7 +74,7 @@ todos: []
 
 | A5 | Configure 5 detection rules in Datadog (hallucination, injection, cost-per-conversion, quality, predictive) | ✅ Complete |
 
-| A6 | Build Datadog dashboard with LLM metrics, health overview, AI insights panels | ⬜ Pending |
+| A6 | Build Datadog dashboard with LLM metrics, health overview, AI insights panels | ✅ Complete |
 
 | A7 | Set up SLOs, incident management, and runbooks in Datadog | ⬜ Pending |
 
