@@ -78,7 +78,7 @@ todos: []
 
 | A7 | Set up SLOs, incident management, and runbooks in Datadog | ✅ Complete |
 
-| A8 | Create traffic-generator.py script to trigger all detection rules | ⬜ Pending |
+| A8 | Create traffic-generator.py script to trigger all detection rules | ✅ Complete |
 
 | A9 | Create K8s manifests (observability-insights-service.yaml, optional datadog-agent.yaml for infra metrics) | ⬜ Pending |
 
