@@ -1,0 +1,23 @@
+# Observability Insights Service Dependencies
+
+# Google ADK (Agent Development Kit)
+google-adk
+vertexai
+google-cloud-aiplatform>=1.96.0
+
+# Flask and web server
+flask==3.0.0
+flask-cors==4.0.0
+werkzeug==3.0.1
+
+# Scheduling
+APScheduler==3.10.4
+
+# HTTP requests (for Datadog API)
+requests>=2.31.0
+
+# Datadog APM and tracing
+ddtrace>=2.10.0
+
+# Utilities
+python-dotenv==1.0.0

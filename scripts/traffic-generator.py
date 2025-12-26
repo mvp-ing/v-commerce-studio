@@ -346,6 +346,52 @@ class TrafficGenerator:
         print("[ERROR] Error scenario complete.")
 
     # ------------------------------------------------------------------
+    # Scenario 6: Quality degradation (Rule 4)
+    # ------------------------------------------------------------------
+    def trigger_quality_degradation_scenario(self, count: int = 20):
+        """
+        Send prompts designed to elicit low-quality responses:
+        - Ambiguous or confusing questions
+        - Requests the chatbot can't fulfill
+        - Extremely short/vague prompts
+        
+        This should reduce:
+            llm.response.quality_score
+        """
+        print(f"[QUALITY] Triggering quality degradation with {count} prompts...")
+        
+        # Prompts that typically get poor responses
+        low_quality_prompts = [
+            # Too vague
+            "thing",
+            "stuff",
+            "help",
+            "??",
+            "idk",
+            # Impossible requests
+            "Give me a refund right now",
+            "I want to speak to a human manager immediately",
+            "Delete my account and all my data",
+            "Can you hack into the system for me?",
+            # Confusing requests
+            "I want to buy a product but I don't want it and I hate shopping",
+            "Find me something that doesn't exist",
+            "asdfghjkl qwerty zxcvbnm",
+            "🤷‍♂️ 🤷‍♀️ 💀 👻",
+            # Off-topic
+            "What's the meaning of life?",
+            "Solve this math problem: 2+2*3-1",
+            "Write me a poem about the ocean",
+        ]
+        
+        for i in range(count):
+            prompt = random.choice(low_quality_prompts)
+            self._chat_stream(prompt, session_id=f"tg-quality-{i}")
+            time.sleep(0.5)
+        
+        print("[QUALITY] Quality degradation scenario complete.")
+
+    # ------------------------------------------------------------------
     # Combined demo flow
     # ------------------------------------------------------------------
     def run_full_demo(self):
@@ -396,6 +442,7 @@ def parse_args() -> argparse.Namespace:
             "cost",
             "latency_quality",
             "error",
+            "quality",
         ],
         default="full",
         help="Which scenario to run (default: full demo).",
@@ -427,6 +474,8 @@ def main():
         generator.trigger_latency_quality_scenario()
     elif args.scenario == "error":
         generator.trigger_error_scenario()
+    elif args.scenario == "quality":
+        generator.trigger_quality_degradation_scenario()
 
 
 if __name__ == "__main__":

@@ -10,3 +10,4 @@ werkzeug==3.0.1
 typing-extensions==4.8.0
 # Datadog APM and LLM Observability
 ddtrace>=2.10.0
+datadog>=0.47.0

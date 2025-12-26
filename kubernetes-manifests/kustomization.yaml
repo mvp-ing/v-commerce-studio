@@ -20,6 +20,7 @@ resources:
   - mcp-service.yaml
   - peau-agent.yaml
   - video-generation.yaml
+  - observability-insights-service.yaml
 # components:
 # - ../kustomize/components/cymbal-branding
 # - ../kustomize/components/google-cloud-operations

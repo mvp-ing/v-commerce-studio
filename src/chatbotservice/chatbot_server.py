@@ -41,10 +41,41 @@ LLMObs.enable(
 
 # Custom metrics for LLM Observability
 from ddtrace import tracer
+from datadog import initialize as dd_initialize, statsd
+
+# Initialize DogStatsD to send metrics to the Datadog Agent
+dd_initialize(
+    statsd_host=os.getenv('DD_AGENT_HOST', 'localhost'),
+    statsd_port=8125  # Default DogStatsD port
+)
 
 def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float, 
-                     quality_score: float = None, model_name: str = "gemini-2.0-flash"):
-    """Emit custom LLM metrics to Datadog"""
+                     quality_score: float = None, model_name: str = "gemini-2.0-flash",
+                     invalid_product_rate: float = 0.0, injection_score: float = 0.0):
+    """Emit custom LLM metrics to Datadog.
+    
+    This emits BOTH:
+    1. Span tags (visible in APM traces)
+    2. Proper metrics (queryable via Metrics API)
+    
+    Metrics emitted match the 5 Detection Rules:
+    - Rule 3: llm.cost_per_conversion (cost anomaly)
+    - Rule 4: llm.response.quality_score (quality degradation)
+    - Rule 1: llm.recommendation.invalid_product_rate (hallucination)
+    - Rule 2: llm.security.injection_attempt_score (prompt injection)
+    - Rule 5: llm.prediction.error_probability (via observability agent)
+    """
+    # Tags matching the monitor queries: env:hackathon, service:v-commerce
+    tags = [
+        f"llm.model:{model_name}",
+        "service:v-commerce",    # Match monitor query
+        "env:hackathon"          # Match monitor query
+    ]
+    
+    # Also emit with chatbotservice tag for more granular tracking
+    service_tags = tags + ["service:chatbotservice"]
+    
+    # ===== Span tags (for APM traces) =====
     span = tracer.current_span()
     if span:
         span.set_tag("llm.model", model_name)
@@ -54,13 +85,173 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
         span.set_tag("llm.request.duration_ms", duration_ms)
         if quality_score is not None:
             span.set_tag("llm.response.quality_score", quality_score)
-        
-        # Estimate cost (Gemini 2.0 Flash pricing approximation)
-        # Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
-        input_cost = (input_tokens / 1_000_000) * 0.075
-        output_cost = (output_tokens / 1_000_000) * 0.30
-        total_cost = input_cost + output_cost
-        span.set_tag("llm.tokens.total_cost_usd", total_cost)
+    
+    # ===== Rule 3: Cost metrics =====
+    # Estimate cost (Gemini 2.0 Flash pricing approximation)
+    # Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
+    input_cost = (input_tokens / 1_000_000) * 0.075
+    output_cost = (output_tokens / 1_000_000) * 0.30
+    total_cost = input_cost + output_cost
+    
+    # Emit cost_per_conversion (for Rule 3 monitor)
+    # In a real app, this would be cost / conversions, but we'll use cost per request
+    statsd.gauge("llm.cost_per_conversion", total_cost, tags=tags)
+    statsd.gauge("llm.tokens.total_cost_usd", total_cost, tags=tags)
+    
+    if span:
+        span.set_tag("llm.cost_per_conversion", total_cost)
+    
+    # ===== Rule 4: Quality score =====
+    if quality_score is not None:
+        statsd.gauge("llm.response.quality_score", quality_score, tags=tags)
+        if span:
+            span.set_tag("llm.response.quality_score", quality_score)
+    
+    # ===== Rule 1: Hallucination detection =====
+    statsd.gauge("llm.recommendation.invalid_product_rate", invalid_product_rate, tags=tags)
+    if span:
+        span.set_tag("llm.recommendation.invalid_product_rate", invalid_product_rate)
+    
+    # ===== Rule 2: Prompt injection score =====
+    statsd.gauge("llm.security.injection_attempt_score", injection_score, tags=tags)
+    if span:
+        span.set_tag("llm.security.injection_attempt_score", injection_score)
+    
+    # ===== General metrics =====
+    statsd.gauge("llm.tokens.input", input_tokens, tags=tags)
+    statsd.gauge("llm.tokens.output", output_tokens, tags=tags)
+    statsd.gauge("llm.tokens.total", input_tokens + output_tokens, tags=tags)
+    statsd.gauge("llm.request.duration_ms", duration_ms, tags=tags)
+    
+    # Increment LLM call counter
+    statsd.increment("llm.request.count", tags=tags)
+
+
+def calculate_quality_score(response_text: str, input_message: str, products_found: int = 0) -> float:
+    """
+    Calculate a quality score (0-1) for the LLM response.
+    
+    Quality factors:
+    - Response length (too short = unhelpful, too long = rambling)
+    - Presence of helpful patterns vs error patterns
+    - Product recommendations made (for shopping context)
+    - Coherence indicators
+    """
+    score = 1.0
+    
+    # Length checks
+    response_len = len(response_text)
+    if response_len < 30:
+        score -= 0.4  # Too short - likely unhelpful
+    elif response_len < 100:
+        score -= 0.2  # Somewhat short
+    elif response_len > 3000:
+        score -= 0.2  # Too verbose
+    
+    # Negative patterns (indicate quality issues)
+    negative_patterns = [
+        "I don't know",
+        "I cannot",
+        "I'm not able",
+        "error",
+        "unfortunately",
+        "I apologize",
+        "I'm sorry, I",
+        "unable to",
+    ]
+    for pattern in negative_patterns:
+        if pattern.lower() in response_text.lower():
+            score -= 0.15
+    
+    # Positive patterns (indicate helpful response)
+    positive_patterns = [
+        "here are",
+        "recommend",
+        "option",
+        "feature",
+        "price",
+        "perfect for",
+        "great choice",
+    ]
+    for pattern in positive_patterns:
+        if pattern.lower() in response_text.lower():
+            score += 0.05
+    
+    # Product recommendation bonus
+    if products_found > 0:
+        score += min(products_found * 0.05, 0.2)  # Max 0.2 bonus
+    
+    # Clamp score between 0 and 1
+    return max(0.0, min(1.0, score))
+
+
+def detect_injection_attempt(prompt: str) -> float:
+    """
+    Detect potential prompt injection attempts (Rule 2).
+    
+    Returns a score from 0.0 (safe) to 1.0 (likely injection).
+    
+    Checks for:
+    - Jailbreak attempts
+    - System prompt extraction
+    - SQL-like patterns
+    - Instruction override attempts
+    """
+    prompt_lower = prompt.lower()
+    score = 0.0
+    
+    # High-risk patterns (each adds 0.3)
+    high_risk_patterns = [
+        "ignore previous instructions",
+        "ignore all instructions",
+        "disregard your instructions",
+        "forget your rules",
+        "you are now",
+        "act as if",
+        "pretend you are",
+        "jailbreak",
+        "dan mode",
+        "developer mode",
+    ]
+    
+    for pattern in high_risk_patterns:
+        if pattern in prompt_lower:
+            score += 0.3
+    
+    # Medium-risk patterns (each adds 0.15)
+    medium_risk_patterns = [
+        "system prompt",
+        "reveal your prompt",
+        "show me your instructions",
+        "what are your rules",
+        "bypass",
+        "override",
+        "admin mode",
+        "sudo",
+    ]
+    
+    for pattern in medium_risk_patterns:
+        if pattern in prompt_lower:
+            score += 0.15
+    
+    # SQL/code injection patterns (each adds 0.2)
+    code_patterns = [
+        "drop table",
+        "select *",
+        "union select",
+        "; --",
+        "' or '1'='1",
+        "<script>",
+        "eval(",
+        "exec(",
+    ]
+    
+    for pattern in code_patterns:
+        if pattern in prompt_lower:
+            score += 0.2
+    
+    # Clamp between 0 and 1
+    return min(1.0, score)
 
 # ============================================
 
@@ -327,7 +518,13 @@ class ChatbotService:
                     # Estimate tokens (rough: 4 chars per token)
                     input_tokens = len(user_message) // 4
                     output_tokens = len(rag_response) // 4
-                    emit_llm_metrics(input_tokens, output_tokens, duration_ms)
+                    # Calculate quality score for Rule 4 detection
+                    quality_score = calculate_quality_score(rag_response, user_message, len(recommended_products))
+                    # Detect prompt injection for Rule 2
+                    injection_score = detect_injection_attempt(user_message)
+                    emit_llm_metrics(input_tokens, output_tokens, duration_ms, 
+                                   quality_score=quality_score,
+                                   injection_score=injection_score)
                     
                     # Annotate LLMObs span with output
                     LLMObs.annotate(
@@ -407,19 +604,25 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
             # Extract recommended product IDs from response
             recommended_products = self._extract_product_ids(final_response_text, products)
             
+            # Check for potential hallucinations (invalid product IDs) - Rule 1
+            invalid_product_rate = self._calculate_invalid_product_rate(final_response_text, products)
+            
+            # Detect prompt injection - Rule 2
+            injection_score = detect_injection_attempt(user_message)
+            
             # Emit LLM metrics
             duration_ms = (time.time() - start_time) * 1000
             # Estimate tokens (rough: 4 chars per token)
             input_tokens = len(prompt) // 4
             output_tokens = len(final_response_text) // 4
-            emit_llm_metrics(input_tokens, output_tokens, duration_ms)
+            # Calculate quality score for Rule 4 detection
+            quality_score = calculate_quality_score(final_response_text, user_message, len(recommended_products))
             
-            # Check for potential hallucinations (invalid product IDs)
-            invalid_product_rate = self._calculate_invalid_product_rate(final_response_text, products)
-            if invalid_product_rate > 0:
-                span = tracer.current_span()
-                if span:
-                    span.set_tag("llm.recommendation.invalid_product_rate", invalid_product_rate)
+            # Emit all detection metrics
+            emit_llm_metrics(input_tokens, output_tokens, duration_ms, 
+                           quality_score=quality_score,
+                           invalid_product_rate=invalid_product_rate,
+                           injection_score=injection_score)
             
             # Annotate LLMObs span with output
             LLMObs.annotate(

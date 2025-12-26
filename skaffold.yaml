@@ -47,6 +47,10 @@ build:
       context: .
       docker:
         dockerfile: src/video_generation/Dockerfile
+    - image: observability-insights-service
+      context: .
+      docker:
+        dockerfile: src/observability_insights_service/Dockerfile
   tagPolicy:
     gitCommit: {}
   local:
