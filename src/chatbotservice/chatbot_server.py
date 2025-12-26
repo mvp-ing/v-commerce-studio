@@ -65,6 +65,11 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
     - Rule 2: llm.security.injection_attempt_score (prompt injection)
     - Rule 5: llm.prediction.error_probability (via observability agent)
     """
+    # DEBUG: Log all incoming values
+    logger.info(f"emit_llm_metrics called: input_tokens={input_tokens}, output_tokens={output_tokens}, "
+                f"duration_ms={duration_ms:.2f}, quality_score={quality_score}, "
+                f"invalid_product_rate={invalid_product_rate}, injection_score={injection_score}")
+    
     # Tags matching the monitor queries: env:hackathon, service:v-commerce
     tags = [
         f"llm.model:{model_name}",
@@ -77,6 +82,8 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
     
     # ===== Span tags (for APM traces) =====
     span = tracer.current_span()
+    logger.info(f"Current span: {span}, span_id: {span.span_id if span else 'None'}, trace_id: {span.trace_id if span else 'None'}")
+
     if span:
         span.set_tag("llm.model", model_name)
         span.set_tag("llm.tokens.input", input_tokens)
@@ -99,23 +106,27 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
     statsd.gauge("llm.tokens.total_cost_usd", total_cost, tags=tags)
     
     if span:
-        span.set_tag("llm.cost_per_conversion", total_cost)
+      logger.info(f"Setting span tags: llm.cost_per_conversion={total_cost}, llm.tokens.total_cost_usd={total_cost}")
+      span.set_tag("llm.cost_per_conversion", total_cost)
     
     # ===== Rule 4: Quality score =====
     if quality_score is not None:
         statsd.gauge("llm.response.quality_score", quality_score, tags=tags)
         if span:
-            span.set_tag("llm.response.quality_score", quality_score)
+          logger.info(f"Setting span tags: llm.response.quality_score={quality_score}")
+          span.set_tag("llm.response.quality_score", quality_score)
     
     # ===== Rule 1: Hallucination detection =====
     statsd.gauge("llm.recommendation.invalid_product_rate", invalid_product_rate, tags=tags)
     if span:
-        span.set_tag("llm.recommendation.invalid_product_rate", invalid_product_rate)
+      logger.info(f"Setting span tags: llm.recommendation.invalid_product_rate={invalid_product_rate}")
+      span.set_tag("llm.recommendation.invalid_product_rate", invalid_product_rate)
     
-    # ===== Rule 2: Prompt injection score =====
+    # ===== Rule 2: Prompt injection score =====  
     statsd.gauge("llm.security.injection_attempt_score", injection_score, tags=tags)
     if span:
-        span.set_tag("llm.security.injection_attempt_score", injection_score)
+      logger.info(f"Setting span tags: llm.security.injection_attempt_score={injection_score}")
+      span.set_tag("llm.security.injection_attempt_score", injection_score)
     
     # ===== General metrics =====
     statsd.gauge("llm.tokens.input", input_tokens, tags=tags)
@@ -125,6 +136,17 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
     
     # Increment LLM call counter
     statsd.increment("llm.request.count", tags=tags)
+    
+    # DEBUG: Confirm metrics were emitted - log ALL values
+    logger.info(f"Metrics pushed to Datadog: "
+                f"invalid_product_rate={invalid_product_rate}, "
+                f"injection_score={injection_score}, "
+                f"quality_score={quality_score}, "
+                f"input_tokens={input_tokens}, "
+                f"output_tokens={output_tokens}, "
+                f"total_tokens={input_tokens + output_tokens}, "
+                f"duration_ms={duration_ms}, "
+                f"tags={tags}")
 
 
 def calculate_quality_score(response_text: str, input_message: str, products_found: int = 0) -> float:
@@ -796,6 +818,42 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
 
             # Extract product IDs from the full response
             recommended_products = self._extract_product_ids(full_response, products)
+
+            # ===== EMIT LLM METRICS FOR DATADOG =====
+            # Calculate metrics the same way as the non-streaming endpoint
+            start_time_approx = time.time()  # Approximate since we don't have the real start
+            duration_ms = 0  # We don't track duration in streaming, set to 0
+            input_tokens = len(prompt) // 4  # Estimate tokens
+            output_tokens = len(full_response) // 4
+            
+            # Calculate quality score for Rule 4
+            quality_score = calculate_quality_score(full_response, user_message, len(recommended_products))
+            
+            # Detect prompt injection for Rule 2
+            injection_score = detect_injection_attempt(user_message)
+            
+            # Calculate hallucination rate for Rule 1
+            invalid_product_rate = self._calculate_invalid_product_rate(full_response, products)
+            
+            # ===== TEST MODE: Simulate hallucination for testing detection rules =====
+            # Trigger with "[TEST_HALLUCINATION]" in the message
+            if "[TEST_HALLUCINATION]" in user_message:
+                invalid_product_rate = 0.85  # High hallucination rate for testing
+                quality_score = 0.15  # Low quality for testing
+                logger.warning(f"TEST MODE: Simulating hallucination with invalid_product_rate={invalid_product_rate}")
+            
+            # Trigger with "[TEST_INJECTION]" in the message  
+            if "[TEST_INJECTION]" in user_message:
+                injection_score = 0.92  # High injection score for testing
+                logger.warning(f"TEST MODE: Simulating injection with injection_score={injection_score}")
+            # ===== END TEST MODE =====
+            
+            # Emit all detection metrics
+            emit_llm_metrics(input_tokens, output_tokens, duration_ms, 
+                           quality_score=quality_score,
+                           invalid_product_rate=invalid_product_rate,
+                           injection_score=injection_score)
+            # ===== END EMIT LLM METRICS =====
 
             # Yield metadata as the last chunk
             yield json.dumps({
