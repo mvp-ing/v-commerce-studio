@@ -1351,3 +1351,11 @@ if __name__ == "__main__":
 4. Apply Kubernetes manifests with DD env vars
 5. Import dashboard JSON to Datadog
 6. Validate end-to-end flow in Datadog cloud UI
+
+---
+
+## 📝 TODO: Future Enhancements
+
+- [ ] **1. Cost Management Separation & Forecasting** - Revisit LLM cost management and Infra cost management, show as separate monitors, and predict future cost based on current pattern and trend
+- [ ] **2. Incident & Case Generation** - Create Incident and Case generation for any one of the monitors
+- [ ] **3. Dashboard Beautification** - Beautify dashboard to display all monitors
