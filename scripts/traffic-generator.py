@@ -396,15 +396,108 @@ class TrafficGenerator:
         print("[QUALITY] Quality degradation scenario complete.")
 
     # ------------------------------------------------------------------
+    # Scenario 7: Predictive Capacity Alert (Rule 5)
+    # ------------------------------------------------------------------
+    def trigger_predictive_alert_scenario(self, insights_service_url: str = None):
+        """
+        Trigger the AI-powered Predictive Capacity Alert (Rule 5).
+        
+        This scenario:
+        1. Creates system stress patterns (high load, errors, latency)
+        2. Calls the Observability Insights Service to force error prediction
+        3. The AI agent analyzes metrics and emits llm.prediction.error_probability
+        
+        Args:
+            insights_service_url: URL of the observability-insights-service
+                                  If None, tries common locations
+        """
+        print("[PREDICTIVE] Starting predictive capacity alert scenario...")
+        
+        # Step 1: Create stress patterns that will make the AI predict errors
+        print("[PREDICTIVE] Step 1: Creating system stress patterns...")
+        
+        # Generate errors and high latency
+        print("  - Generating error traffic...")
+        self.trigger_error_scenario(count=20)
+        
+        print("  - Generating quality degradation...")
+        self.trigger_quality_degradation_scenario(count=15)
+        
+        print("  - Generating high latency requests...")
+        self.trigger_latency_quality_scenario(concurrent_requests=20, bursts=3)
+        
+        # Step 2: Trigger the Observability Insights Service to run error prediction
+        print("[PREDICTIVE] Step 2: Triggering Observability Insights Service...")
+        
+        # Try different possible URLs for the insights service
+        insights_urls = [
+            insights_service_url,
+            "http://localhost:8081",  # Local port-forward
+            "http://observability-insights-service:8080",  # K8s internal
+            f"{self.base_url.replace(':8080', ':8081')}",  # Same host, different port
+        ]
+        
+        insights_triggered = False
+        for url in insights_urls:
+            if not url:
+                continue
+            try:
+                # Force the AI agent to run error prediction
+                endpoint = f"{url.rstrip('/')}/insights/errors?force=true"
+                print(f"  - Trying: {endpoint}")
+                
+                response = self.session.get(endpoint, timeout=60)
+                if response.status_code == 200:
+                    result = response.json()
+                    print(f"  ✅ Insights service responded!")
+                    
+                    if result.get("result", {}).get("response"):
+                        # Extract probability from agent response
+                        agent_response = result["result"]["response"]
+                        print(f"  - Agent analysis: {agent_response[:200]}...")
+                    
+                    insights_triggered = True
+                    break
+                else:
+                    print(f"  - Got status {response.status_code}")
+            except requests.exceptions.RequestException as e:
+                print(f"  - Failed: {e}")
+        
+        if not insights_triggered:
+            print("  ⚠️ Could not reach Observability Insights Service")
+            print("  💡 Try port-forwarding: kubectl port-forward svc/observability-insights-service 8081:8080")
+            print("  💡 Or trigger manually: curl http://localhost:8081/insights/errors?force=true")
+        
+        # Step 3: Also trigger via scheduler endpoint
+        print("[PREDICTIVE] Step 3: Triggering scheduled error prediction job...")
+        for url in insights_urls:
+            if not url:
+                continue
+            try:
+                endpoint = f"{url.rstrip('/')}/scheduler/trigger/error_prediction"
+                response = self.session.post(endpoint, timeout=30)
+                if response.status_code == 200:
+                    print(f"  ✅ Triggered scheduled job via {url}")
+                    break
+            except:
+                pass
+        
+        print("[PREDICTIVE] Predictive alert scenario complete.")
+        print("  ℹ️  The Observability Insights Service AI agent will analyze metrics")
+        print("  ℹ️  and emit llm.prediction.error_probability metric to Datadog.")
+        print("  ℹ️  If probability > 0.8, Rule 5 will trigger.")
+
+    # ------------------------------------------------------------------
     # Combined demo flow
     # ------------------------------------------------------------------
     def run_full_demo(self):
         """
-        Run the full three-phase demo as outlined in the plan:
+        Run the full demo as outlined in the plan:
 
         1. Normal traffic baseline
-        2. Trigger LLM-focused detection rules
+        2. Trigger LLM-focused detection rules (Rules 1-4)
         3. Trigger broader error/latency patterns
+        4. Trigger AI predictive alert (Rule 5)
         """
         print("=== Starting Traffic Generation Demo ===")
 
@@ -413,7 +506,7 @@ class TrafficGenerator:
         self.generate_normal_traffic(duration_seconds=120, delay_between_actions=0.7)
 
         # Phase 2: Trigger LLM detection rules
-        print("\n[Phase 2] Triggering LLM detection rules...")
+        print("\n[Phase 2] Triggering LLM detection rules (Rules 1-4)...")
         self.trigger_hallucination_scenario(count=30)
         self.trigger_injection_scenario(count=30)
         self.trigger_cost_spike_scenario(conversations=8, messages_per_conversation=6)
@@ -422,6 +515,10 @@ class TrafficGenerator:
         # Phase 3: Trigger infrastructure / error alerts
         print("\n[Phase 3] Triggering error patterns...")
         self.trigger_error_scenario(count=40)
+
+        # Phase 4: Trigger AI predictive capacity alert (Rule 5)
+        print("\n[Phase 4] Triggering AI predictive capacity alert (Rule 5)...")
+        self.trigger_predictive_alert_scenario()
 
         print("\n=== Traffic Generation Complete ===")
         print("Check Datadog for triggered alerts, monitors, and incidents.")
@@ -447,6 +544,7 @@ def parse_args() -> argparse.Namespace:
             "latency_quality",
             "error",
             "quality",
+            "predictive",  # Rule 5: Predictive Capacity Alert
         ],
         default="full",
         help="Which scenario to run (default: full demo).",
@@ -456,6 +554,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=120,
         help="Duration in seconds for normal baseline traffic (for 'normal' or 'full').",
+    )
+    parser.add_argument(
+        "--insights-url",
+        type=str,
+        default=None,
+        help="URL of the Observability Insights Service (e.g. http://localhost:8081). For 'predictive' scenario.",
     )
     return parser.parse_args()
 
@@ -480,6 +584,8 @@ def main():
         generator.trigger_error_scenario()
     elif args.scenario == "quality":
         generator.trigger_quality_degradation_scenario()
+    elif args.scenario == "predictive":
+        generator.trigger_predictive_alert_scenario(insights_service_url=args.insights_url)
 
 
 if __name__ == "__main__":

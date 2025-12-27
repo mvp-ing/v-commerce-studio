@@ -355,6 +355,11 @@ The AI-powered Observability Insights Service has predicted a high probability o
 **Prediction Confidence:** {{value}}
 **Threshold:** 80% (0.8) confidence
 
+### Trigger Details
+- **Metric:** `llm.prediction.error_probability`
+- **Last 15min Average:** {{value}}
+- **Tags:** {{tags}}
+
 ### Predicted Failure Scenarios
 - Approaching Vertex AI rate limits based on traffic trajectory
 - Latency degradation pattern similar to past incidents
@@ -368,12 +373,15 @@ The AI-powered Observability Insights Service has predicted a high probability o
 4. **Alert downstream services** of potential degradation
 5. **Prepare rollback plan** if recent deployment
 
-### AI-Generated Analysis
-The Observability Insights Service analyzed:
-- 24-hour traffic patterns
-- Current resource utilization trajectory
-- Historical incident patterns
-- Model latency trends
+### 🤖 View Full AI Analysis
+The Observability Insights Service generated this prediction. View the detailed AI analysis:
+**[View AI Prediction Events in Datadog](https://app.datadoghq.com/event/explorer?query=source%3Aobservability_insights%20prediction)**
+
+The event contains:
+- Root cause analysis from Gemini
+- Affected services list
+- Time-to-issue estimate
+- Specific recommended actions
 
 ### Runbook
 - Review current vs projected traffic
