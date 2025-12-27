@@ -16,13 +16,17 @@ import google.generativeai as genai
 # Datadog APM Setup
 # ============================================
 from ddtrace import tracer, patch_all, config
+from datadog import initialize, statsd
 
 # Set service name before patching
 config.fastapi["service_name"] = "tryonservice"
 config.service = "tryonservice"
 
-# Initialize Datadog tracing (auto-patches fastapi, httpx, etc.)
+# Initialize Datadog tracing
 patch_all()
+
+# Initialize DogStatsD
+initialize(statsd_host=os.getenv('DD_AGENT_HOST', 'localhost'), statsd_port=8125)
 
 # Configure logging with Datadog trace correlation
 logging.basicConfig(
@@ -32,14 +36,33 @@ logging.basicConfig(
 )
 logger = logging.getLogger('tryonservice')
 
-def emit_tryon_metrics(inference_duration_ms: float, category: str, success: bool = True):
+# Pillow Security: Prevent Decompression Bomb attacks
+# Default is ~89M pixels. 50M allows normal high-res images while blocking bombs.
+Image.MAX_IMAGE_PIXELS = 50_000_000 
+
+def emit_tryon_metrics(inference_duration_ms: float, category: str, success: bool = True, error_type: str = None):
     """Emit custom try-on service metrics to Datadog"""
+    tags = [f"category:{category}", f"success:{str(success).lower()}", "service:tryonservice", "env:hackathon"]
+    if error_type:
+        tags.append(f"error_type:{error_type}")
+    
+    # Emit Proper Metrics (queryable via Metrics API)
+    statsd.increment("tryon.request.count", tags=tags)
+    if success:
+        statsd.gauge("tryon.inference.duration_ms", inference_duration_ms, tags=tags)
+    else:
+        statsd.increment("tryon.error.count", tags=tags)
+        if error_type:
+            statsd.increment(f"tryon.security.{error_type}", tags=tags)
+
+    # Span tags (for APM traces)
     span = tracer.current_span()
     if span:
         span.set_tag("tryon.inference.duration_ms", inference_duration_ms)
         span.set_tag("tryon.category", category)
         span.set_tag("tryon.success", success)
-        span.set_tag("tryon.model", TRYON_MODEL)
+        if error_type:
+            span.set_tag("tryon.error_type", error_type)
 
 # ============================================
 
@@ -65,13 +88,32 @@ def downscale(img: Image.Image, max_side: int = MAX_SIDE) -> Image.Image:
     return img
 
 
-def file_to_image_part(file_bytes: bytes, mime: str = "image/png"):
-    """Convert raw bytes to the inline_data format expected by Gemini vision models."""
-    img = Image.open(BytesIO(file_bytes)).convert("RGB")
-    img = downscale(img, MAX_SIDE)
-    buf = BytesIO()
-    img.save(buf, format="PNG")
-    return {"mime_type": mime, "data": buf.getvalue()}
+def file_to_image_part(file_bytes: bytes, mime: str = "image/png") -> Tuple[dict, Optional[str]]:
+    """
+    Convert raw bytes to the inline_data format.
+    Returns (data_part, error_type).
+    """
+    try:
+        # Catch Pillow errors before they hit the LLM
+        img = Image.open(BytesIO(file_bytes))
+        
+        # Explicitly verify the image loading
+        img.verify() 
+        
+        # Re-open or seek back since verify() closes/moves pointer
+        img = Image.open(BytesIO(file_bytes)).convert("RGB")
+        
+        img = downscale(img, MAX_SIDE)
+        buf = BytesIO()
+        img.save(buf, format="PNG")
+        return {"mime_type": mime, "data": buf.getvalue()}, None
+        
+    except Image.DecompressionBombError:
+        logger.error("Decompression bomb detected!")
+        return {}, "decompression_bomb"
+    except Exception as e:
+        logger.error(f"Image loading failed: {str(e)}")
+        return {}, "invalid_image"
 
 FASHION_PROMPT = """
 Create a professional e-commerce fashion photo. Take the product from the first image and let the person from the second image wear it. 
@@ -134,9 +176,14 @@ async def tryon(
         if not base_bytes or not product_bytes:
             raise HTTPException(status_code=400, detail="Both images are required")
 
-        person_part = file_to_image_part(base_bytes)
-        product_part = file_to_image_part(product_bytes)
+        person_part, person_err = file_to_image_part(base_bytes)
+        product_part, prod_err = file_to_image_part(product_bytes)
         
+        if person_err or prod_err:
+            err_type = person_err or prod_err
+            emit_tryon_metrics(0, category, success=False, error_type=err_type)
+            raise HTTPException(status_code=400, detail=f"Image processing failed: {err_type}")
+
         # Get the appropriate prompt based on category
         prompt = get_prompt_for_category(category)
 

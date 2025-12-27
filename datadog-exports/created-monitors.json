@@ -21,7 +21,11 @@
   },
   {
     "name": "[V-Commerce] AI-Powered Predictive Capacity Alert",
-    "id": 17066720,
+    "type": "metric alert"
+  },
+  {
+    "name": "[V-Commerce] Multimodal Security Attack Detection - Try-On Service",
+    "id": 17314302,
     "type": "metric alert"
   }
 ]

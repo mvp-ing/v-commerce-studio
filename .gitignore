@@ -1,0 +1,42 @@
+# Environment files with secrets
+.env
+.env.*
+.env.datadog
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+eggs/
+.eggs/
+*.egg
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (if any frontend)
+node_modules/
+
+# Logs
+*.log
+logs/
+
+# Datadog exports (may contain sensitive data)
+datadog-exports/created-monitors.json
