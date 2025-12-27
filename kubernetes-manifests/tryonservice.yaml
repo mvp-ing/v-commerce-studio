@@ -13,7 +13,7 @@ spec:
       labels:
         app: tryonservice
       annotations:
-        sidecar.istio.io/rewriteAppHTTPProbers: 'true'
+        sidecar.istio.io/rewriteAppHTTPProbers: "true"
     spec:
       securityContext:
         fsGroup: 1000
@@ -38,9 +38,9 @@ spec:
             initialDelaySeconds: 10
           env:
             - name: PORT
-              value: '8080'
+              value: "8080"
             - name: TRYON_MODEL
-              value: 'gemini-2.5-flash-image-preview'
+              value: "gemini-2.5-flash-image-preview"
             - name: GEMINI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -48,26 +48,26 @@ spec:
                   key: GEMINI_API_KEY
             # Datadog APM Configuration
             - name: DD_SERVICE
-              value: 'tryonservice'
+              value: "tryonservice"
             - name: DD_ENV
-              value: 'hackathon'
+              value: "hackathon"
             - name: DD_VERSION
-              value: '1.0.0'
+              value: "1.0.0"
             - name: DD_TRACE_ENABLED
-              value: 'true'
+              value: "true"
             - name: DD_AGENT_HOST
-              value: 'datadog-agent'
+              value: "datadog-agent"
             - name: DD_TRACE_AGENT_PORT
-              value: '8126'
+              value: "8126"
             - name: DD_LOGS_INJECTION
-              value: 'true'
+              value: "true"
           resources:
             requests:
-              cpu: 50m
-              memory: 64Mi
-            limits:
-              cpu: 200m
+              cpu: 100m
               memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 1Gi
 ---
 apiVersion: v1
 kind: Service

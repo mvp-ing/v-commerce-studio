@@ -2,7 +2,7 @@
 """
 Datadog Detection Rules Creator
 
-This script creates the 5 LLM detection rules as Datadog monitors using the API.
+This script creates the 6 LLM detection rules as Datadog monitors using the API.
 The detection rules are designed for the v-commerce LLM application.
 
 Detection Rules:
@@ -11,6 +11,7 @@ Detection Rules:
 3. Cost-Per-Conversion Anomaly - Business impact correlation
 4. Response Quality Degradation - User experience monitoring
 5. Predictive Capacity Alert - AI-powered failure prediction
+6. Multimodal Security Attack Detection - Try-On service image attack detection
 
 Usage:
     source .env.datadog
@@ -95,7 +96,7 @@ def create_monitor(monitor_config: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def get_detection_rules() -> List[Dict[str, Any]]:
-    """Return the 5 LLM detection rules."""
+    """Return the 6 LLM detection rules."""
     return [
         # Rule 1: Hallucination Detection
         {
@@ -403,6 +404,69 @@ The Observability Insights Service analyzed:
                 "evaluation_delay": 60
             },
             "priority": 2
+        },
+        
+        # Rule 6: Multimodal Security Attack Detection (Try-On Service)
+        {
+            "name": "[V-Commerce] Multimodal Security Attack Detection - Try-On Service",
+            "type": "metric alert",
+            "query": "sum(last_5m):sum:tryon.security.decompression_bomb{env:hackathon,service:tryonservice}.as_count() + sum:tryon.security.invalid_image{env:hackathon,service:tryonservice}.as_count() > 5",
+            "message": """## 🔴 SECURITY ALERT: Multimodal Attack Detected on Try-On Service
+
+**Service:** {{service.name}}
+**Environment:** {{env}}
+
+### What's happening?
+The Try-On Service has detected multiple suspicious image uploads that may indicate an ongoing attack. This includes decompression bomb attempts and malformed/malicious image files.
+
+**Attack Count (5min):** {{value}}
+**Threshold:** 5 attacks per 5 minutes
+
+### Attack Types Detected
+- **Decompression Bombs**: Malicious images designed to exhaust server memory when decompressed (e.g., a 1KB file that expands to gigabytes)
+- **Invalid/Malicious Images**: Corrupted files, polyglot files (images hiding malicious payloads), or files designed to exploit image processing vulnerabilities
+
+### Immediate Actions Required
+1. ⚠️ Check source IPs/sessions for repeat offenders
+2. Review uploaded file patterns in APM traces
+3. Consider temporary rate limiting for suspicious sources
+4. Check server resource utilization (memory, CPU)
+5. Preserve logs for security forensics
+
+### Security Runbook
+- Extract request details from Datadog APM traces
+- Check for patterns: same user, same IP range, specific file signatures
+- If sustained attack: enable stricter file validation or temporary service protection mode
+- Notify security team if attack volume is high
+- Consider implementing CAPTCHA or additional verification for uploads
+
+### Impact Assessment
+- Service availability may be degraded under attack
+- Memory exhaustion could crash pods
+- Potential for data exfiltration via polyglot files
+
+@slack-security-alerts @pagerduty-security""",
+            "tags": [
+                "env:hackathon",
+                "service:tryonservice",
+                "team:security",
+                "detection_rule:multimodal_security",
+                "severity:critical",
+                "category:security"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 5,
+                    "warning": 2
+                },
+                "notify_no_data": False,
+                "renotify_interval": 10,
+                "include_tags": True,
+                "require_full_window": False,
+                "new_host_delay": 0,
+                "evaluation_delay": 0
+            },
+            "priority": 1
         }
     ]
 
@@ -419,7 +483,7 @@ def main():
         sys.exit(1)
     
     print()
-    print("📋 Creating 5 LLM Detection Rules...")
+    print("📋 Creating 6 LLM Detection Rules...")
     print("-" * 40)
     
     rules = get_detection_rules()
@@ -427,7 +491,7 @@ def main():
     failed_monitors = []
     
     for i, rule in enumerate(rules, 1):
-        print(f"\n[{i}/5] Creating: {rule['name'][:50]}...")
+        print(f"\n[{i}/6] Creating: {rule['name'][:50]}...")
         
         try:
             result = create_monitor(rule)
