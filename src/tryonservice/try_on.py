@@ -37,8 +37,13 @@ logging.basicConfig(
 logger = logging.getLogger('tryonservice')
 
 # Pillow Security: Prevent Decompression Bomb attacks
-# Default is ~89M pixels. 50M allows normal high-res images while blocking bombs.
-Image.MAX_IMAGE_PIXELS = 50_000_000 
+# Set the limit to 50M pixels
+Image.MAX_IMAGE_PIXELS = 50_000_000
+
+# Configure PIL to raise errors instead of warnings for decompression bombs
+import warnings
+from PIL import Image as PILImage
+warnings.filterwarnings('error', category=PILImage.DecompressionBombWarning) 
 
 def emit_tryon_metrics(inference_duration_ms: float, category: str, success: bool = True, error_type: str = None):
     """Emit custom try-on service metrics to Datadog"""
@@ -48,12 +53,17 @@ def emit_tryon_metrics(inference_duration_ms: float, category: str, success: boo
     
     # Emit Proper Metrics (queryable via Metrics API)
     statsd.increment("tryon.request.count", tags=tags)
+    logger.info(f"[METRIC] statsd.increment('tryon.request.count', value=1) tags={tags}")
+    
     if success:
         statsd.gauge("tryon.inference.duration_ms", inference_duration_ms, tags=tags)
     else:
         statsd.increment("tryon.error.count", tags=tags)
+        logger.info(f"[METRIC] statsd.increment('tryon.error.count', value=1) tags={tags}")
         if error_type:
-            statsd.increment(f"tryon.security.{error_type}", tags=tags)
+            metric_name = f"tryon.security.{error_type}"
+            statsd.increment(metric_name, tags=tags)
+            logger.info(f"[METRIC] statsd.increment('{metric_name}', value=1) tags={tags}")
 
     # Span tags (for APM traces)
     span = tracer.current_span()
@@ -92,27 +102,44 @@ def file_to_image_part(file_bytes: bytes, mime: str = "image/png") -> Tuple[dict
     """
     Convert raw bytes to the inline_data format.
     Returns (data_part, error_type).
+    
+    Security: PIL is configured to raise DecompressionBombWarning as an error
+    when images exceed MAX_IMAGE_PIXELS (50M). This is caught below.
     """
     try:
         # Catch Pillow errors before they hit the LLM
         img = Image.open(BytesIO(file_bytes))
         
+        # Log image info for security monitoring
+        width, height = img.size
+        pixel_count = width * height
+        logger.info(f"Processing image: {width}x{height} = {pixel_count:,} pixels (limit: {Image.MAX_IMAGE_PIXELS:,})")
+        
         # Explicitly verify the image loading
         img.verify() 
         
         # Re-open or seek back since verify() closes/moves pointer
+        # This is where PIL will raise DecompressionBombWarning (converted to error)
         img = Image.open(BytesIO(file_bytes)).convert("RGB")
+        
+        # Log after successful load
+        logger.info(f"Image loaded successfully: {width}x{height}")
         
         img = downscale(img, MAX_SIDE)
         buf = BytesIO()
         img.save(buf, format="PNG")
         return {"mime_type": mime, "data": buf.getvalue()}, None
         
-    except Image.DecompressionBombError:
-        logger.error("Decompression bomb detected!")
+    except Image.DecompressionBombWarning as e:
+        # PIL raises this when image exceeds MAX_IMAGE_PIXELS (we configured it as error)
+        logger.error(f"Decompression bomb detected by PIL! {e}")
+        return {}, "decompression_bomb"
+    except Image.DecompressionBombError as e:
+        # This catches PIL's built-in detection (for extremely large images)
+        logger.error(f"Decompression bomb detected by PIL! {e}")
         return {}, "decompression_bomb"
     except Exception as e:
-        logger.error(f"Image loading failed: {str(e)}")
+        logger.error(f"Image loading failed: {type(e).__name__}: {str(e)}")
         return {}, "invalid_image"
 
 FASHION_PROMPT = """

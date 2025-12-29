@@ -76,18 +76,18 @@ scheduler = BackgroundScheduler()
 
 
 def scheduled_error_prediction():
-    """Scheduled: Run error prediction with hybrid approach"""
+    """Scheduled: Run error prediction - always uses AI analysis"""
     logger.info("⏰ Scheduled: Running error prediction...")
     try:
-        # Level 1: Quick rule-based check (FREE)
+        # Level 1: Quick rule-based check (for logging context)
         quick_check = dd_client.get_quick_health_check()
         
-        if not quick_check.get("needs_deep_analysis"):
-            logger.info("Quick check passed - system healthy, skipping AI analysis")
-            return
+        if quick_check.get("needs_deep_analysis"):
+            logger.info(f"Concerns detected: {quick_check.get('concerns')} - running AI analysis")
+        else:
+            logger.info("Quick check passed - running AI analysis anyway for prediction")
         
-        # Level 2: AI agent analysis (uses tokens)
-        logger.info(f"Concerns detected: {quick_check.get('concerns')} - running AI analysis")
+        # Level 2: AI agent analysis (always run for scheduled jobs)
         result = get_agent().predict_errors()
         logger.info(f"AI prediction complete: {len(result.get('tool_calls', []))} tool calls")
     except Exception as e:

@@ -40,6 +40,13 @@ from ddtrace import tracer, patch_all, config
 from ddtrace.llmobs import LLMObs
 
 config.service = "observability-insights-agent"
+
+# Disable google_genai integration to prevent LLMObs errors with tool call responses
+# The ddtrace google_genai integration has a bug where it fails to parse 
+# responses without candidates (like tool call responses)
+config.google_genai["llmobs_enabled"] = False
+
+# Patch all integrations (except google_genai LLMObs which is disabled above)
 patch_all()
 
 LLMObs.enable(
@@ -454,16 +461,44 @@ For cost optimization:
                     session_id=session_id,
                     new_message=user_content
                 ):
-                    logger.info(f"Agent event: {type(event).__name__}")
+                    event_type = type(event).__name__
+                    logger.info(f"Agent event: {event_type}")
                     
-                    # Track tool calls
-                    if hasattr(event, 'tool_calls') and event.tool_calls:
-                        for tc in event.tool_calls:
-                            tool_calls.append(getattr(tc, 'name', str(tc)))
+                    # Debug: log event attributes to understand structure
+                    if hasattr(event, '__dict__'):
+                        event_attrs = [k for k in event.__dict__.keys() if not k.startswith('_')]
+                        if event_attrs:
+                            logger.info(f"  Event attrs: {event_attrs[:5]}")  # First 5 attrs
+                    
+                    # Track tool calls - check multiple possible attributes
+                    # ADK may use different attribute names
+                    for attr_name in ['tool_calls', 'function_calls', 'actions', 'tool_use']:
+                        if hasattr(event, attr_name):
+                            calls = getattr(event, attr_name)
+                            if calls:
+                                logger.info(f"  Found {attr_name}: {calls}")
+                                if isinstance(calls, (list, tuple)):
+                                    for tc in calls:
+                                        tool_name = getattr(tc, 'name', None) or getattr(tc, 'function_name', None) or str(tc)
+                                        tool_calls.append(tool_name)
+                                        logger.info(f"  → Tool called: {tool_name}")
+                    
+                    # Check for tool results in content
+                    if hasattr(event, 'content') and event.content:
+                        if hasattr(event.content, 'parts'):
+                            for part in event.content.parts:
+                                if hasattr(part, 'function_call'):
+                                    fc = part.function_call
+                                    tool_name = getattr(fc, 'name', str(fc))
+                                    tool_calls.append(tool_name)
+                                    logger.info(f"  → Function call in content: {tool_name}")
+                                if hasattr(part, 'function_response'):
+                                    logger.info(f"  → Got function response")
                     
                     # Get final response
                     if event.is_final_response() and event.content and event.content.parts:
                         response_text = event.content.parts[0].text.strip()
+                        logger.info(f"  Final response received ({len(response_text)} chars)")
                         break
                 
                 duration_ms = (time.time() - start_time) * 1000
@@ -501,19 +536,46 @@ For cost optimization:
     # Predefined analysis tasks
     def predict_errors(self) -> Dict[str, Any]:
         """Run error prediction analysis"""
-        task = """Analyze the current system health and predict potential errors:
+        task = """You are running a PREDICTIVE FAILURE ANALYSIS. Your goal is to predict what might fail BEFORE it happens.
 
-1. First, run get_quick_health_check() to see if there are any immediate concerns
-2. If concerns exist, dig deeper with get_error_metrics() and get_full_llm_metrics()
-3. Analyze trends and patterns
-4. Calculate the probability of service degradation in the next 2 hours
-5. Emit the prediction metric using emit_datadog_metric with metric name "llm.prediction.error_probability"
-6. If probability > 50%, send a warning event to Datadog
+ALWAYS COLLECT ALL DATA:
+1. Run get_quick_health_check() to get current status
+2. Run get_error_metrics() to get detailed error and latency trends (ALWAYS run this, even if quick check is healthy)
+3. Run get_full_llm_metrics() to get LLM performance data (ALWAYS run this)
 
-Provide your analysis with:
-- Probability of issues (0-100%)
-- Root cause if probability is high
-- Specific recommended actions
+ANALYZE THE DATA:
+4. Look for concerning TRENDS (increasing errors, rising latency) even if current values are low
+5. Calculate the probability of service degradation in the next 2 hours
+6. Identify which specific service (chatbotservice, shoppingassistantservice, peau_agent) is most at risk
+
+EMIT RESULTS TO DATADOG:
+7. ALWAYS emit the prediction metric using emit_datadog_metric with:
+   - metric_name: "llm.prediction.error_probability"
+   - value: your probability as a decimal (e.g., 0.85 for 85%)
+   - tags: "service:v-commerce,env:hackathon"
+8. If probability > 50%, send a warning event to Datadog with send_datadog_event
+
+FORMAT YOUR RESPONSE AS MARKDOWN:
+## 🔮 Failure Prediction Report
+
+### Probability: XX%
+### Status: [healthy/warning/critical]
+### Time to Potential Failure: X hours/minutes
+
+### Services at Risk:
+1. **[service_name]** - [what might fail] - [probability]%
+
+### Root Cause Analysis:
+[Why this might fail based on the metrics]
+
+### Recommended Actions:
+1. [Specific action for specific service]
+2. [Another action]
+
+### Metrics Summary:
+- Error rate: X (trend: increasing/stable/decreasing)
+- Latency: Xs (trend: increasing/stable/decreasing)
+- Quality score: X (trend: increasing/stable/decreasing)
 """
         return self.analyze_sync(task)
     

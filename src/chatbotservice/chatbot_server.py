@@ -51,7 +51,8 @@ dd_initialize(
 
 def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float, 
                      quality_score: float = None, model_name: str = "gemini-2.0-flash",
-                     invalid_product_rate: float = 0.0, injection_score: float = 0.0):
+                     invalid_product_rate: float = 0.0, injection_score: float = 0.0,
+                     session_id: str = None, user_id: str = None):
     """Emit custom LLM metrics to Datadog.
     
     This emits BOTH:
@@ -64,11 +65,16 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
     - Rule 1: llm.recommendation.invalid_product_rate (hallucination)
     - Rule 2: llm.security.injection_attempt_score (prompt injection)
     - Rule 5: llm.prediction.error_probability (via observability agent)
+    
+    Args:
+        session_id: Optional session identifier for tracking which session triggered alerts
+        user_id: Optional user identifier for tracking which user triggered alerts
     """
     # DEBUG: Log all incoming values
     logger.info(f"emit_llm_metrics called: input_tokens={input_tokens}, output_tokens={output_tokens}, "
                 f"duration_ms={duration_ms:.2f}, quality_score={quality_score}, "
-                f"invalid_product_rate={invalid_product_rate}, injection_score={injection_score}")
+                f"invalid_product_rate={invalid_product_rate}, injection_score={injection_score}, "
+                f"session_id={session_id}")
     
     # Tags matching the monitor queries: env:hackathon, service:v-commerce
     tags = [
@@ -76,6 +82,12 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
         "service:v-commerce",    # Match monitor query
         "env:hackathon"          # Match monitor query
     ]
+    
+    # Add session_id and user_id to tags if provided
+    if session_id:
+        tags.append(f"session_id:{session_id}")
+    if user_id:
+        tags.append(f"user_id:{user_id}")
     
     # Also emit with chatbotservice tag for more granular tracking
     service_tags = tags + ["service:chatbotservice"]
@@ -92,6 +104,10 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
         span.set_tag("llm.request.duration_ms", duration_ms)
         if quality_score is not None:
             span.set_tag("llm.response.quality_score", quality_score)
+        if session_id:
+            span.set_tag("session_id", session_id)
+        if user_id:
+            span.set_tag("user_id", user_id)
     
     # ===== Rule 3: Cost metrics =====
     # Estimate cost (Gemini 2.0 Flash pricing approximation)
@@ -142,6 +158,7 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
                 f"invalid_product_rate={invalid_product_rate}, "
                 f"injection_score={injection_score}, "
                 f"quality_score={quality_score}, "
+                f"session_id={session_id}, "
                 f"input_tokens={input_tokens}, "
                 f"output_tokens={output_tokens}, "
                 f"total_tokens={input_tokens + output_tokens}, "
@@ -157,9 +174,13 @@ def calculate_quality_score(response_text: str, input_message: str, products_fou
     - Response length (too short = unhelpful, too long = rambling)
     - Presence of helpful patterns vs error patterns
     - Product recommendations made (for shopping context)
-    - Coherence indicators
+    - Response relevance to input message
+    - Detection of vague/generic responses
+    - Detection of off-topic or irrelevant responses
     """
     score = 1.0
+    input_lower = input_message.lower()
+    response_lower = response_text.lower()
     
     # Length checks
     response_len = len(response_text)
@@ -172,36 +193,87 @@ def calculate_quality_score(response_text: str, input_message: str, products_fou
     
     # Negative patterns (indicate quality issues)
     negative_patterns = [
-        "I don't know",
-        "I cannot",
-        "I'm not able",
-        "error",
-        "unfortunately",
-        "I apologize",
-        "I'm sorry, I",
-        "unable to",
+        ("I don't know", 0.2),
+        ("I cannot", 0.15),
+        ("I'm not able", 0.2),
+        ("error", 0.15),
+        ("unfortunately", 0.1),
+        ("I apologize", 0.1),
+        ("I'm sorry, I", 0.15),
+        ("unable to", 0.2),
+        ("I don't have access", 0.2),
+        ("I'm not sure", 0.15),
+        ("that's outside my", 0.2),
+        ("beyond my capabilities", 0.25),
+        ("can't help with that", 0.2),
+        ("not within my scope", 0.2),
     ]
-    for pattern in negative_patterns:
-        if pattern.lower() in response_text.lower():
-            score -= 0.15
+    for pattern, penalty in negative_patterns:
+        if pattern.lower() in response_lower:
+            score -= penalty
+    
+    # Detect vague/generic responses (penalty for non-specific answers)
+    vague_patterns = [
+        ("it depends", 0.15),
+        ("there are many options", 0.1),
+        ("various factors", 0.1),
+        ("generally speaking", 0.1),
+        ("in general", 0.05),
+        ("could you be more specific", 0.2),  # Asked for clarification instead of answering
+        ("what exactly are you looking for", 0.15),
+        ("can you clarify", 0.15),
+    ]
+    for pattern, penalty in vague_patterns:
+        if pattern.lower() in response_lower:
+            score -= penalty
+    
+    # Check for off-topic detection
+    # If user asks about products but response talks about unrelated things
+    shopping_keywords = ['buy', 'product', 'price', 'recommend', 'show', 'find', 'looking for', 'want', 'need']
+    is_shopping_query = any(kw in input_lower for kw in shopping_keywords)
+    
+    if is_shopping_query:
+        # User wants products - check if response has product-related content
+        product_indicators = ['$', 'price', 'product', '[', ']', 'recommend', 'categories']
+        has_product_content = any(ind in response_lower for ind in product_indicators)
+        
+        if not has_product_content and products_found == 0:
+            score -= 0.25  # Failed to provide product info when asked
+    
+    # Check for potential hallucinations - mentioning products without IDs when catalog is available
+    # If response mentions "product" but no bracketed IDs, could be making things up
+    mentions_products = 'product' in response_lower or 'item' in response_lower
+    has_product_ids = '[' in response_text and ']' in response_text
+    if mentions_products and not has_product_ids and is_shopping_query:
+        score -= 0.15  # Potentially hallucinating products
     
     # Positive patterns (indicate helpful response)
     positive_patterns = [
-        "here are",
-        "recommend",
-        "option",
-        "feature",
-        "price",
-        "perfect for",
-        "great choice",
+        ("here are", 0.05),
+        ("recommend", 0.05),
+        ("option", 0.03),
+        ("feature", 0.03),
+        ("price", 0.05),
+        ("perfect for", 0.05),
+        ("great choice", 0.05),
+        ("based on your", 0.05),  # Personalization
+        ("you might also like", 0.05),
     ]
-    for pattern in positive_patterns:
-        if pattern.lower() in response_text.lower():
-            score += 0.05
+    for pattern, bonus in positive_patterns:
+        if pattern.lower() in response_lower:
+            score += bonus
     
     # Product recommendation bonus
     if products_found > 0:
         score += min(products_found * 0.05, 0.2)  # Max 0.2 bonus
+    
+    # Input quality check - penalize if input was garbage and response still pretends to answer
+    garbage_input_patterns = ['asdf', 'qwerty', 'zxcv', '??', 'idk', '💀', '🤷']
+    is_garbage_input = any(p in input_lower for p in garbage_input_patterns)
+    if is_garbage_input:
+        # If input is garbage but we got a long response, something's wrong
+        if response_len > 200:
+            score -= 0.2  # Model should have asked for clarification or declined
     
     # Clamp score between 0 and 1
     return max(0.0, min(1.0, score))
@@ -213,6 +285,11 @@ def detect_injection_attempt(prompt: str) -> float:
     
     Returns a score from 0.0 (safe) to 1.0 (likely injection).
     
+    Scoring:
+    - Single high-risk pattern: 0.5+
+    - Two high-risk patterns: 0.8+ (triggers alert at 0.7 threshold)
+    - SQL/code injection: 0.4 each
+    
     Checks for:
     - Jailbreak attempts
     - System prompt extraction
@@ -222,55 +299,83 @@ def detect_injection_attempt(prompt: str) -> float:
     prompt_lower = prompt.lower()
     score = 0.0
     
-    # High-risk patterns (each adds 0.3)
+    # High-risk patterns (each adds 0.5 - one pattern is suspicious, two triggers alert)
     high_risk_patterns = [
         "ignore previous instructions",
         "ignore all instructions",
+        "ignore your instructions",
         "disregard your instructions",
+        "disregard all",
         "forget your rules",
+        "forget everything",
         "you are now",
         "act as if",
         "pretend you are",
+        "pretend to be",
         "jailbreak",
         "dan mode",
         "developer mode",
+        "debug mode",
+        "bypass safety",
+        "bypass your",
+        "override your",
+        "unlock your",
+        "reveal your system prompt",
+        "show your instructions",
+        "print your prompt",
     ]
     
     for pattern in high_risk_patterns:
         if pattern in prompt_lower:
-            score += 0.3
+            score += 0.5
     
-    # Medium-risk patterns (each adds 0.15)
+    # Medium-risk patterns (each adds 0.35)
     medium_risk_patterns = [
         "system prompt",
         "reveal your prompt",
         "show me your instructions",
         "what are your rules",
+        "what is your prompt",
         "bypass",
         "override",
         "admin mode",
         "sudo",
+        "root access",
+        "api key",
+        "secret key",
+        "password",
+        "credential",
     ]
     
     for pattern in medium_risk_patterns:
         if pattern in prompt_lower:
-            score += 0.15
+            score += 0.35
     
-    # SQL/code injection patterns (each adds 0.2)
+    # SQL/code injection patterns (each adds 0.4)
     code_patterns = [
         "drop table",
         "select *",
+        "select * from",
         "union select",
         "; --",
         "' or '1'='1",
+        "' or 1=1",
+        "1=1",
         "<script>",
+        "</script>",
         "eval(",
         "exec(",
+        "execute(",
+        "os.system",
+        "subprocess",
+        "import os",
+        "${",   # Template injection
+        "{{",   # Template injection
     ]
     
     for pattern in code_patterns:
         if pattern in prompt_lower:
-            score += 0.2
+            score += 0.4
     
     # Clamp between 0 and 1
     return min(1.0, score)
@@ -835,24 +940,15 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
             # Calculate hallucination rate for Rule 1
             invalid_product_rate = self._calculate_invalid_product_rate(full_response, products)
             
-            # ===== TEST MODE: Simulate hallucination for testing detection rules =====
-            # Trigger with "[TEST_HALLUCINATION]" in the message
-            if "[TEST_HALLUCINATION]" in user_message:
-                invalid_product_rate = 0.85  # High hallucination rate for testing
-                quality_score = 0.15  # Low quality for testing
-                logger.warning(f"TEST MODE: Simulating hallucination with invalid_product_rate={invalid_product_rate}")
-            
-            # Trigger with "[TEST_INJECTION]" in the message  
-            if "[TEST_INJECTION]" in user_message:
-                injection_score = 0.92  # High injection score for testing
-                logger.warning(f"TEST MODE: Simulating injection with injection_score={injection_score}")
-            # ===== END TEST MODE =====
+            # Log the quality metrics for observability
+            logger.info(f"Quality metrics - score: {quality_score:.2f}, invalid_rate: {invalid_product_rate:.2f}, injection: {injection_score:.2f}")
             
             # Emit all detection metrics
             emit_llm_metrics(input_tokens, output_tokens, duration_ms, 
                            quality_score=quality_score,
                            invalid_product_rate=invalid_product_rate,
-                           injection_score=injection_score)
+                           injection_score=injection_score,
+                           session_id=session_id)
             # ===== END EMIT LLM METRICS =====
 
             # Yield metadata as the last chunk

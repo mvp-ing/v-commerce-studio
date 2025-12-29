@@ -347,7 +347,7 @@ The LLM response quality score has dropped below acceptable levels. This indicat
             "message": """## 🔮 Predictive Alert: Failure Predicted Within 2 Hours
 
 **Service:** {{service.name}}
-**Environment:** {{env}}
+**Environment:** {{env.name}}
 
 ### What's happening?
 The AI-powered Observability Insights Service has predicted a high probability of failure within the next 2 hours based on current traffic patterns and system behavior.
@@ -355,10 +355,28 @@ The AI-powered Observability Insights Service has predicted a high probability o
 **Prediction Confidence:** {{value}}
 **Threshold:** 80% (0.8) confidence
 
+---
+
+## 🤖 AI-Generated Analysis
+
+### Root Cause
+{{root_cause.name}}
+
+### Affected Services
+{{affected_services.name}}
+
+### Recommended Actions
+{{actions_summary.name}}
+
+### Time to Issue
+{{time_to_issue_hours.name}} hours
+
+---
+
 ### Trigger Details
 - **Metric:** `llm.prediction.error_probability`
 - **Last 15min Average:** {{value}}
-- **Tags:** {{tags}}
+- **All Tags:** {{tags}}
 
 ### Predicted Failure Scenarios
 - Approaching Vertex AI rate limits based on traffic trajectory
@@ -366,28 +384,22 @@ The AI-powered Observability Insights Service has predicted a high probability o
 - Error rate trending upward
 - Resource utilization approaching critical levels
 
-### Proactive Actions Recommended
-1. **Pre-scale resources** if using autoscaling
-2. **Enable request queuing** to smooth traffic spikes
-3. **Warm up caches** for common queries
-4. **Alert downstream services** of potential degradation
-5. **Prepare rollback plan** if recent deployment
+### 📊 View Full AI Analysis
+The Observability Insights Service generated this prediction. View the detailed AI analysis event:
+**[View AI Prediction Events in Datadog →](https://app.datadoghq.com/event/explorer?query=source%3Aobservability_insights%20prediction)**
 
-### 🤖 View Full AI Analysis
-The Observability Insights Service generated this prediction. View the detailed AI analysis:
-**[View AI Prediction Events in Datadog](https://app.datadoghq.com/event/explorer?query=source%3Aobservability_insights%20prediction)**
-
-The event contains:
-- Root cause analysis from Gemini
-- Affected services list
+The event contains the complete Gemini-generated analysis with:
+- Detailed root cause explanation
+- Full list of affected services
+- Step-by-step recommended actions
 - Time-to-issue estimate
-- Specific recommended actions
 
 ### Runbook
-- Review current vs projected traffic
-- Check scaling policies and limits
-- Verify backup/failover readiness
-- Notify stakeholders of potential impact
+1. Review the AI-generated root cause analysis above
+2. Check current vs projected traffic
+3. Implement the recommended actions from the AI analysis
+4. Verify scaling policies and limits
+5. Notify stakeholders of potential impact
 
 @slack-llm-alerts @slack-sre""",
             "tags": [

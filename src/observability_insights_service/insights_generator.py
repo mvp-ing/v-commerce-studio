@@ -144,26 +144,89 @@ class InsightsGenerator:
             # Build context for Gemini
             metrics_context = self._format_metrics_for_prompt(error_metrics, llm_metrics)
             
-            prompt = f"""You are an expert SRE analyzing observability data for an e-commerce platform with LLM-powered services (chatbot, shopping assistant, and a proactive engagement agent).
+            prompt = f"""You are an expert SRE analyzing observability data for an e-commerce platform called V-Commerce.
 
-Here is the current telemetry data:
+## Platform Architecture
+The platform has the following LLM-powered services:
+1. **chatbotservice** - Main customer chat interface, handles product queries and recommendations
+2. **shoppingassistantservice** - AI shopping assistant for personalized recommendations  
+3. **peau_agent** (PEAU Agent) - Proactive Engagement and Upsell agent, sends proactive messages
 
+All services use Gemini LLM via Vertex AI and share the same project quotas.
+
+## Current Telemetry Data (Last 1 Hour)
 {metrics_context}
 
-Based on these metrics and trends, analyze the system health and predict potential issues.
+## Your Task
+Analyze these metrics and predict SPECIFIC failures that may occur in the next 2 hours.
 
-Respond in JSON format:
+**IMPORTANT**: For each service showing concerning metrics, provide:
+- What specifically will fail
+- When it will likely happen
+- What users will experience
+- How to prevent it
+
+## Response Format (JSON)
+Respond with valid JSON only:
 {{
-    "probability": <float 0-1, probability of service degradation in next 2 hours>,
+    "probability": <float 0-1, overall probability of service degradation>,
     "confidence": <float 0-1, your confidence in this prediction>,
     "status": "<healthy|warning|critical>",
-    "cause": "<root cause analysis if probability > 0.5, otherwise 'System operating normally'>",
-    "affected_services": ["<list of services likely to be affected>"],
-    "time_to_issue_hours": <estimated hours until issue occurs, or null if healthy>,
-    "recommended_actions": ["<list of 2-4 specific actions to prevent issues>"]
+    "failure_predictions": [
+        {{
+            "service": "<exact service name>",
+            "failure_mode": "<what will fail: e.g., 'Request timeouts', 'Rate limit errors', 'Quality degradation'>",
+            "probability": <float 0-1, probability for this specific service>,
+            "time_to_failure_minutes": <estimated minutes until failure>,
+            "user_impact": "<what users will experience>",
+            "symptoms": ["<observable symptom 1>", "<symptom 2>"],
+            "root_cause": "<technical root cause>",
+            "mitigation": "<specific action to prevent>"
+        }}
+    ],
+    "affected_services": ["<list of all services that may be affected>"],
+    "time_to_issue_hours": <overall estimated hours until first failure>,
+    "recommended_actions": [
+        "<specific action 1 with service name>",
+        "<specific action 2 with service name>"
+    ],
+    "prediction_markdown": "<Complete markdown-formatted analysis - see format below>"
 }}
 
-Be specific and actionable. Focus on LLM-specific concerns like rate limits, token quotas, model latency, and quality degradation."""
+## prediction_markdown Format
+The prediction_markdown field MUST contain a complete markdown analysis like this:
+
+```
+## 🔮 AI Failure Prediction Report
+
+### Overall Assessment
+**Status**: <STATUS>
+**Probability of Service Degradation**: <XX%>
+**Estimated Time to First Failure**: <X hours/minutes>
+
+### ⚠️ Services at Risk
+
+#### 1. [SERVICE_NAME]
+- **Risk Level**: <High/Medium/Low> (<XX%> probability)
+- **Predicted Failure**: <failure mode>
+- **Time to Failure**: ~<X> minutes
+- **User Impact**: <what users will see>
+- **Root Cause**: <technical cause>
+- **Mitigation**: <specific fix>
+
+#### 2. [NEXT_SERVICE_NAME]
+...
+
+### 📋 Recommended Actions
+1. **[Priority 1]**: <action with service name>
+2. **[Priority 2]**: <action with service name>
+
+### 📊 Supporting Metrics
+- <metric 1>: <value> (<interpretation>)
+- <metric 2>: <value> (<interpretation>)
+```
+
+Be specific, actionable, and focus on preventing failures before they occur."""
 
             response = self._call_gemini(prompt)
             result = self._parse_json_response(response)
@@ -171,13 +234,29 @@ Be specific and actionable. Focus on LLM-specific concerns like rate limits, tok
             if result:
                 result["analysis_type"] = "gemini_deep"
                 
+                # Build full AI analysis text for monitor display
+                full_analysis = self._build_full_analysis_text(result)
+                
+                # Extract root cause from failure predictions if available
+                failure_preds = result.get("failure_predictions", [])
+                if failure_preds:
+                    # Sort by probability and get the highest risk prediction
+                    sorted_preds = sorted(failure_preds, key=lambda x: x.get("probability", 0), reverse=True)
+                    top_pred = sorted_preds[0]
+                    
+                    # Build a detailed cause string
+                    cause = f"{top_pred.get('service', 'Unknown')}: {top_pred.get('failure_mode', 'Unknown failure')} - {top_pred.get('root_cause', 'Unknown cause')}"
+                else:
+                    cause = result.get("cause", "Unknown")
+                
                 # Send alerts based on results
                 self.alert_sender.send_error_prediction(
                     probability=result.get("probability", 0),
-                    cause=result.get("cause", "Unknown"),
+                    cause=cause,
                     recommended_actions=result.get("recommended_actions", []),
                     affected_services=result.get("affected_services", []),
-                    time_to_issue_hours=result.get("time_to_issue_hours", 2.0)
+                    time_to_issue_hours=result.get("time_to_issue_hours") or 2.0,
+                    full_ai_analysis=full_analysis
                 )
                 
                 self.alert_sender.send_insights_generated_event("error_prediction", True)
@@ -385,3 +464,112 @@ Keep it concise and actionable. Focus on business impact."""
             lines.append(f"| {service} | {input_t:,} | {output_t:,} | {total_t:,} | ${cost:.4f} |")
         
         return "\n".join(lines)
+
+    def _build_full_analysis_text(self, result: Dict) -> str:
+        """
+        Build a formatted markdown text of the full Gemini analysis.
+        
+        This is used to attach the AI analysis to Datadog metrics and events,
+        allowing the monitor message to display detailed failure predictions.
+        
+        Args:
+            result: The parsed Gemini analysis result
+            
+        Returns:
+            Formatted markdown string with the full analysis
+        """
+        # If Gemini provided a pre-formatted markdown, use it
+        if result.get("prediction_markdown"):
+            return result["prediction_markdown"]
+        
+        # Otherwise, build markdown from structured data
+        probability = result.get("probability", 0)
+        confidence = result.get("confidence", 0)
+        status = result.get("status", "unknown")
+        affected_services = result.get("affected_services", [])
+        time_to_issue = result.get("time_to_issue_hours")
+        recommended_actions = result.get("recommended_actions", [])
+        failure_predictions = result.get("failure_predictions", [])
+        
+        # Build the analysis text
+        lines = [
+            "## 🔮 AI Failure Prediction Report",
+            "",
+            "### Overall Assessment",
+            f"**Status:** {status.upper()}",
+            f"**Probability of Service Degradation:** {probability:.1%}",
+        ]
+        
+        if confidence:
+            lines.append(f"**Analysis Confidence:** {confidence:.1%}")
+        
+        if time_to_issue:
+            if time_to_issue < 1:
+                lines.append(f"**Estimated Time to First Failure:** ~{int(time_to_issue * 60)} minutes")
+            else:
+                lines.append(f"**Estimated Time to First Failure:** {time_to_issue:.1f} hours")
+        
+        # Add service-specific failure predictions if available
+        if failure_predictions:
+            lines.append("")
+            lines.append("### ⚠️ Services at Risk")
+            lines.append("")
+            
+            for i, pred in enumerate(failure_predictions, 1):
+                service = pred.get("service", "Unknown Service")
+                failure_mode = pred.get("failure_mode", "Unknown failure")
+                svc_probability = pred.get("probability", 0)
+                time_to_failure = pred.get("time_to_failure_minutes", 0)
+                user_impact = pred.get("user_impact", "Unknown impact")
+                root_cause = pred.get("root_cause", "Unknown cause")
+                mitigation = pred.get("mitigation", "No mitigation specified")
+                symptoms = pred.get("symptoms", [])
+                
+                # Determine risk level
+                if svc_probability >= 0.8:
+                    risk_level = "🔴 High"
+                elif svc_probability >= 0.5:
+                    risk_level = "🟡 Medium"
+                else:
+                    risk_level = "🟢 Low"
+                
+                lines.append(f"#### {i}. {service}")
+                lines.append(f"- **Risk Level:** {risk_level} ({svc_probability:.0%} probability)")
+                lines.append(f"- **Predicted Failure:** {failure_mode}")
+                lines.append(f"- **Time to Failure:** ~{time_to_failure} minutes")
+                lines.append(f"- **User Impact:** {user_impact}")
+                
+                if symptoms:
+                    lines.append(f"- **Symptoms:** {', '.join(symptoms)}")
+                
+                lines.append(f"- **Root Cause:** {root_cause}")
+                lines.append(f"- **Mitigation:** {mitigation}")
+                lines.append("")
+        
+        elif affected_services:
+            # Fallback to basic affected services list
+            lines.append("")
+            lines.append("### Affected Services")
+            services_str = ", ".join(affected_services)
+            lines.append(f"**Services at Risk:** {services_str}")
+            
+            # Include legacy 'cause' field if present
+            cause = result.get("cause", "")
+            if cause and cause != "System operating normally":
+                lines.append("")
+                lines.append("### Root Cause Analysis")
+                lines.append(cause)
+        
+        # Add recommended actions
+        if recommended_actions:
+            lines.append("")
+            lines.append("### 📋 Recommended Actions")
+            for i, action in enumerate(recommended_actions, 1):
+                lines.append(f"{i}. {action}")
+        
+        lines.append("")
+        lines.append("---")
+        lines.append("*Generated by V-Commerce Observability Insights Service (Gemini AI)*")
+        
+        return "\n".join(lines)
+

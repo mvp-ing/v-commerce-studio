@@ -803,10 +803,85 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                         ]
                     },
                     "layout": {"x": 6, "y": 2, "width": 6, "height": 3}
+                },
+                # Try-On Service: Multimodal Security Attacks
+                {
+                    "definition": {
+                        "title": "🖼️ Try-On Service: Security Attacks",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "type": "query_value",
+                        "requests": [
+                            {
+                                "response_format": "scalar",
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
+                                        "aggregator": "sum"
+                                    },
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query2",
+                                        "query": "sum:tryon.security.invalid_image{service:tryonservice}",
+                                        "aggregator": "sum"
+                                    }
+                                ],
+                                "formulas": [{"formula": "query1 + query2"}],
+                                "conditional_formats": [
+                                    {"comparator": ">=", "value": 10, "palette": "white_on_red"},
+                                    {"comparator": ">=", "value": 5, "palette": "white_on_yellow"},
+                                    {"comparator": "<", "value": 5, "palette": "white_on_green"}
+                                ]
+                            }
+                        ],
+                        "precision": 0,
+                        "custom_unit": "attacks",
+                        "timeseries_background": {"type": "area"}
+                    },
+                    "layout": {"x": 0, "y": 5, "width": 6, "height": 3}
+                },
+                {
+                    "definition": {
+                        "title": "🖼️ Try-On Service: Multimodal Security Attacks Over Time",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "show_legend": True,
+                        "legend_layout": "auto",
+                        "type": "timeseries",
+                        "requests": [
+                            {
+                                "formulas": [
+                                    {"formula": "query1", "alias": "Decompression Bombs"},
+                                    {"formula": "query2", "alias": "Invalid Images"}
+                                ],
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "sum:tryon.security.decompression_bomb{service:tryonservice}"
+                                    },
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query2",
+                                        "query": "sum:tryon.security.invalid_image{service:tryonservice}"
+                                    }
+                                ],
+                                "response_format": "timeseries",
+                                "style": {"palette": "warm", "line_type": "solid", "line_width": "normal"},
+                                "display_type": "bars"
+                            }
+                        ],
+                        "markers": [
+                            {"value": "y = 3", "display_type": "error dashed", "label": "Critical Threshold (3 attacks/5min)"}
+                        ]
+                    },
+                    "layout": {"x": 6, "y": 5, "width": 6, "height": 3}
                 }
             ]
         },
-        "layout": {"x": 0, "y": 18, "width": 12, "height": 6}
+        "layout": {"x": 0, "y": 18, "width": 12, "height": 9}
     })
     
     # ============================================

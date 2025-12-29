@@ -155,16 +155,46 @@ class AlertSender:
         
         return self._make_request("POST", "/v2/series", metric_data)
 
+    def _sanitize_tag_value(self, value: str, max_length: int = 200) -> str:
+        """
+        Sanitize a string for use as a Datadog tag value.
+        
+        Datadog tag values have restrictions:
+        - Max 200 characters
+        - No special characters that break parsing
+        
+        Args:
+            value: The string to sanitize
+            max_length: Maximum length (default 200)
+            
+        Returns:
+            Sanitized string safe for tag values
+        """
+        if not value:
+            return "none"
+        
+        # Replace problematic characters
+        sanitized = value.replace('\n', ' | ').replace('\r', '')
+        sanitized = sanitized.replace('"', "'").replace('`', "'")
+        sanitized = sanitized.replace(',', ';')  # Commas break tag parsing
+        
+        # Truncate if too long
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length - 3] + "..."
+        
+        return sanitized.strip()
+
     def send_error_prediction(
         self,
         probability: float,
         cause: str,
         recommended_actions: List[str],
         affected_services: List[str] = None,
-        time_to_issue_hours: float = 2.0
+        time_to_issue_hours: float = 2.0,
+        full_ai_analysis: str = None
     ) -> bool:
         """
-        Send an error prediction event and emit the prediction metric.
+        Send an error prediction event and emit the prediction metric with AI analysis.
         
         Args:
             probability: Probability of error (0-1)
@@ -172,19 +202,60 @@ class AlertSender:
             recommended_actions: List of suggested actions
             affected_services: List of services that may be affected
             time_to_issue_hours: Estimated time until issue occurs
+            full_ai_analysis: Complete AI-generated analysis text (markdown format)
             
         Returns:
             True if successful
         """
-        # Emit the probability metric
+        # Prepare tag values for the AI analysis (sanitized for Datadog)
+        services_text = ", ".join(affected_services) if affected_services else "All LLM services"
+        actions_summary = " | ".join(recommended_actions[:3]) if recommended_actions else "No actions"
+        cause_summary = self._sanitize_tag_value(cause, max_length=180)
+        
+        # Build comprehensive tags including AI analysis summary
+        prediction_tags = [
+            "prediction_type:error",
+            f"root_cause:{cause_summary}",
+            f"affected_services:{self._sanitize_tag_value(services_text, max_length=100)}",
+            f"actions_summary:{self._sanitize_tag_value(actions_summary, max_length=150)}",
+            f"time_to_issue_hours:{time_to_issue_hours:.1f}"
+        ]
+        
+        # Emit the probability metric WITH the AI analysis as tags
+        # This allows the monitor to reference {{root_cause.name}}, {{affected_services.name}}, etc.
         self.emit_metric(
             "llm.prediction.error_probability",
             probability,
             metric_type="gauge",
-            tags=[f"prediction_type:error"]
+            tags=prediction_tags
         )
         
-        # Only send event if probability is concerning
+        # Also emit the time-to-issue as a separate metric
+        self.emit_metric(
+            "llm.prediction.time_to_issue",
+            time_to_issue_hours,
+            metric_type="gauge",
+            tags=prediction_tags
+        )
+        
+        # If we have the full AI analysis, emit it as a separate metric for dashboard display
+        # The analysis is stored in tags which can be shown in widgets
+        if full_ai_analysis:
+            # Split analysis into chunks for tag storage (Datadog tag limit ~200 chars)
+            analysis_preview = self._sanitize_tag_value(full_ai_analysis, max_length=500)
+            
+            self.emit_metric(
+                "llm.prediction.ai_analysis",
+                probability,  # Use probability as the value
+                metric_type="gauge",
+                tags=[
+                    "prediction_type:error",
+                    f"analysis_preview:{self._sanitize_tag_value(analysis_preview[:180])}",
+                    f"confidence:{probability:.2f}"
+                ]
+            )
+        
+        # Only send detailed event if probability is concerning
         if probability < 0.5:
             logger.info(f"Error probability low ({probability:.2%}), not sending alert event")
             return True
@@ -200,11 +271,20 @@ class AlertSender:
             alert_type = "info"
             emoji = "ℹ️"
         
-        # Format the event
-        services_text = ", ".join(affected_services) if affected_services else "All LLM services"
+        # Format the event with full analysis
         actions_text = "\n".join([f"- {action}" for action in recommended_actions])
         
         title = f"{emoji} Predicted Service Degradation ({probability:.0%} confidence)"
+        
+        # Include full AI analysis if provided
+        ai_section = ""
+        if full_ai_analysis:
+            ai_section = f"""
+### 🤖 Full AI Analysis
+{full_ai_analysis}
+
+---
+"""
         
         text = f"""
 ## AI-Powered Prediction Alert
@@ -218,8 +298,7 @@ class AlertSender:
 
 ### Recommended Actions
 {actions_text}
-
----
+{ai_section}
 *This prediction was generated by the Observability Insights Service using Gemini AI analysis of telemetry patterns.*
 """
         
@@ -228,7 +307,7 @@ class AlertSender:
             text=text,
             alert_type=alert_type,
             priority="normal",
-            tags=["prediction:error", f"confidence:{probability:.2f}"],
+            tags=["prediction:error", f"confidence:{probability:.2f}"] + prediction_tags,
             aggregation_key="error_prediction"
         )
 
