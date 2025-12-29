@@ -229,40 +229,73 @@ footer.py-5 {
 }
 
 footer .footer-top {
-  padding: 60px 0px;
+  padding: 40px 0px;
   background-color: #570d2e;
   color: white;
+  text-align: center;
 }
 
 footer .footer-top a {
   color: white;
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+footer .footer-top a:hover {
+  opacity: 0.8;
   text-decoration: underline;
 }
 
-/* The <p> containing the session-id. */
-footer .footer-top p:nth-child(3) {
-  margin-top: 56px;
-}
-
-footer .footer-top .footer-social,
-footer .footer-top .footer-app,
-footer .footer-links,
-footer .footer-top .social,
-footer .footer-top .app {
-  display: block;
+/* Footer Links Row */
+footer .footer-links-row {
+  display: flex;
+  justify-content: center;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  font-size: 14px;
 }
 
-footer .footer-top .footer-social {
-  padding: 31px;
+footer .footer-divider {
+  color: rgba(255, 255, 255, 0.4);
 }
 
-footer .footer-top .footer-social h4 {
-  margin-bottom: 0;
+/* Footer Info */
+footer .footer-info {
+  margin-bottom: 20px;
 }
 
-footer .footer-top .footer-social div {
-  width: 50%;
+footer .footer-info p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+footer .footer-info .demo-notice {
+  font-size: 12px;
+  opacity: 0.7;
+  font-style: italic;
+}
+
+footer .footer-info .source-link {
+  margin-top: 12px;
+}
+
+footer .footer-info .source-link a {
+  text-decoration: underline;
+}
+
+/* Footer Debug */
+footer .footer-debug {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 11px;
+  opacity: 0.6;
+}
+
+footer .footer-debug small {
+  display: inline-block;
 }
 
 /* Home */

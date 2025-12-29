@@ -1,8 +1,8 @@
 {{ define "cart" }} {{ template "header" . }}
 
-<div {{ with $.platform_css }} class="{{.}}" {{ end }}>
+<!-- <div {{ with $.platform_css }} class="{{.}}" {{ end }}>
   <span class="platform-flag"> {{$.platform_name}} </span>
-</div>
+</div> -->
 
 <main role="main" class="cart-sections">
   {{ if eq (len $.items) 0 }}
