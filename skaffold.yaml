@@ -1,7 +1,25 @@
 apiVersion: skaffold/v3
 kind: Config
 metadata:
+  name: datadog
+manifests:
+  kustomize:
+    paths:
+      - kubernetes-manifests/datadog
+deploy:
+  kubectl:
+    hooks:
+      after:
+        - host:
+            command: ["kubectl", "rollout", "status", "daemonset/datadog-agent", "--timeout=60s"]
+  statusCheck: true
+---
+apiVersion: skaffold/v3
+kind: Config
+metadata:
   name: app
+requires:
+  - configs: [datadog]
 build:
   platforms: ["linux/amd64"]
   artifacts:
