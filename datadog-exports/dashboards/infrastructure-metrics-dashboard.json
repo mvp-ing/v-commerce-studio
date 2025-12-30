@@ -1,0 +1,1245 @@
+{
+  "title": "V-Commerce Infrastructure Metrics Dashboard",
+  "description": "Comprehensive infrastructure observability for V-Commerce platform. Includes container metrics, system resources, and Docker metrics.",
+  "layout_type": "ordered",
+  "tags": [
+    "team:infrastructure"
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "title": "🐳 Container Overview",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "blue",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Running Containers",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:docker.containers.running{*}",
+                      "aggregator": "last"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0,
+              "timeseries_background": {"type": "area"}
+            },
+            "layout": {"x": 0, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Stopped Containers",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:docker.containers.stopped{*}",
+                      "aggregator": "last"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}],
+                  "conditional_formats": [
+                    {"comparator": ">", "value": 5, "palette": "white_on_red"},
+                    {"comparator": ">", "value": 0, "palette": "white_on_yellow"},
+                    {"comparator": "<=", "value": 0, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0
+            },
+            "layout": {"x": 3, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Container CPU Usage",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:container.cpu.usage{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1000000000 * 100"}],
+                  "conditional_formats": [
+                    {"comparator": ">=", "value": 80, "palette": "white_on_red"},
+                    {"comparator": ">=", "value": 50, "palette": "white_on_yellow"},
+                    {"comparator": "<", "value": 50, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "precision": 1,
+              "custom_unit": "%"
+            },
+            "layout": {"x": 6, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Container Memory Usage",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:container.memory.usage{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1073741824"}]
+                }
+              ],
+              "precision": 2,
+              "custom_unit": "GB"
+            },
+            "layout": {"x": 9, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Running Containers Over Time",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": ["avg", "value"],
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {"formula": "query1", "alias": "Running"},
+                    {"formula": "query2", "alias": "Stopped"}
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:docker.containers.running{*}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "sum:docker.containers.stopped{*}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "dog_classic", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "area"
+                }
+              ]
+            },
+            "layout": {"x": 0, "y": 2, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "Container Uptime by Service",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "toplist",
+              "requests": [
+                {
+                  "formulas": [{"formula": "query1 / 3600", "limit": {"count": 10, "order": "desc"}}],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:container.uptime{*} by {container_name}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {"x": 6, "y": 2, "width": 6, "height": 3}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 0, "width": 12, "height": 6}
+    },
+    {
+      "definition": {
+        "title": "💾 Container CPU & Memory",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "purple",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Avg CPU Usage",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:container.cpu.usage{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1000000000 * 100"}],
+                  "conditional_formats": [
+                    {"comparator": ">=", "value": 80, "palette": "white_on_red"},
+                    {"comparator": ">=", "value": 50, "palette": "white_on_yellow"},
+                    {"comparator": "<", "value": 50, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "precision": 1,
+              "custom_unit": "%"
+            },
+            "layout": {"x": 0, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "CPU Throttled Periods",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.cpu.throttled.periods{*}",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}],
+                  "conditional_formats": [
+                    {"comparator": ">", "value": 100, "palette": "white_on_red"},
+                    {"comparator": ">", "value": 0, "palette": "white_on_yellow"},
+                    {"comparator": "<=", "value": 0, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0
+            },
+            "layout": {"x": 3, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Total Memory Usage",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.memory.usage{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1073741824"}]
+                }
+              ],
+              "precision": 2,
+              "custom_unit": "GB"
+            },
+            "layout": {"x": 6, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "OOM Events",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.memory.oom_events{*}",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}],
+                  "conditional_formats": [
+                    {"comparator": ">", "value": 0, "palette": "white_on_red"},
+                    {"comparator": "<=", "value": 0, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0
+            },
+            "layout": {"x": 9, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "CPU Usage by Container",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": ["avg", "max", "value"],
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [{"formula": "query1 / 1000000000 * 100"}],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:container.cpu.usage{*} by {container_name}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "cool", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "line"
+                }
+              ]
+            },
+            "layout": {"x": 0, "y": 2, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "Memory Usage by Container",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": ["avg", "max", "value"],
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [{"formula": "query1 / 1048576"}],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:container.memory.usage{*} by {container_name}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "purple", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "line"
+                }
+              ],
+              "yaxis": {"label": "MB"}
+            },
+            "layout": {"x": 6, "y": 2, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "Top 10 Containers by CPU",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "toplist",
+              "requests": [
+                {
+                  "formulas": [{"formula": "query1 / 1000000000 * 100", "limit": {"count": 10, "order": "desc"}}],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:container.cpu.usage{*} by {container_name}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {"x": 0, "y": 5, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "Top 10 Containers by Memory",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "toplist",
+              "requests": [
+                {
+                  "formulas": [{"formula": "query1 / 1048576", "limit": {"count": 10, "order": "desc"}}],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:container.memory.usage{*} by {container_name}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "response_format": "scalar"
+                }
+              ]
+            },
+            "layout": {"x": 6, "y": 5, "width": 6, "height": 3}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 6, "width": 12, "height": 9}
+    },
+    {
+      "definition": {
+        "title": "🌐 Container Network",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "green",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Network RX (MB/s)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.net.rcvd{*}.as_rate()",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1048576"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 2,
+              "custom_unit": "MB/s"
+            },
+            "layout": {"x": 0, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Network TX (MB/s)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.net.sent{*}.as_rate()",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1048576"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 2,
+              "custom_unit": "MB/s"
+            },
+            "layout": {"x": 3, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "RX Packets/s",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.net.rcvd.packets{*}.as_rate()",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0,
+              "custom_unit": "/s"
+            },
+            "layout": {"x": 6, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "TX Packets/s",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.net.sent.packets{*}.as_rate()",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0,
+              "custom_unit": "/s"
+            },
+            "layout": {"x": 9, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Network I/O Over Time",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": ["avg", "max", "value"],
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {"formula": "query1 / 1048576", "alias": "RX (MB/s)"},
+                    {"formula": "query2 / 1048576", "alias": "TX (MB/s)"}
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.net.rcvd{*}.as_rate()"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "sum:container.net.sent{*}.as_rate()"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "green", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "area"
+                }
+              ]
+            },
+            "layout": {"x": 0, "y": 2, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "Network Traffic by Container",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [{"formula": "(query1 + query2) / 1048576"}],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.net.rcvd{*} by {container_name}.as_rate()"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "sum:container.net.sent{*} by {container_name}.as_rate()"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "semantic", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "line"
+                }
+              ],
+              "yaxis": {"label": "MB/s"}
+            },
+            "layout": {"x": 6, "y": 2, "width": 6, "height": 3}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 15, "width": 12, "height": 6}
+    },
+    {
+      "definition": {
+        "title": "💿 Container I/O",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "orange",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Disk Read (MB/s)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.io.read{*}.as_rate()",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1048576"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 2,
+              "custom_unit": "MB/s"
+            },
+            "layout": {"x": 0, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Disk Write (MB/s)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.io.write{*}.as_rate()",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1048576"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 2,
+              "custom_unit": "MB/s"
+            },
+            "layout": {"x": 3, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Read Ops/s",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.io.read.operations{*}.as_rate()",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0,
+              "custom_unit": "/s"
+            },
+            "layout": {"x": 6, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Write Ops/s",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.io.write.operations{*}.as_rate()",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0,
+              "custom_unit": "/s"
+            },
+            "layout": {"x": 9, "y": 0, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "Disk I/O Over Time",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": ["avg", "value"],
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {"formula": "query1 / 1048576", "alias": "Read (MB/s)"},
+                    {"formula": "query2 / 1048576", "alias": "Write (MB/s)"}
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.io.read{*}.as_rate()"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "sum:container.io.write{*}.as_rate()"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "orange", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "area"
+                }
+              ]
+            },
+            "layout": {"x": 0, "y": 2, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "I/O Operations Over Time",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {"formula": "query1", "alias": "Read Ops/s"},
+                    {"formula": "query2", "alias": "Write Ops/s"}
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.io.read.operations{*}.as_rate()"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "sum:container.io.write.operations{*}.as_rate()"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "warm", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "line"
+                }
+              ]
+            },
+            "layout": {"x": 6, "y": 2, "width": 6, "height": 3}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 21, "width": 12, "height": 6}
+    },
+    {
+      "definition": {
+        "title": "⚙️ System Metrics",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "gray",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "System CPU User %",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.cpu.user{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}],
+                  "conditional_formats": [
+                    {"comparator": ">=", "value": 80, "palette": "white_on_red"},
+                    {"comparator": ">=", "value": 50, "palette": "white_on_yellow"},
+                    {"comparator": "<", "value": 50, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "precision": 1,
+              "custom_unit": "%"
+            },
+            "layout": {"x": 0, "y": 0, "width": 2, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "System CPU System %",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.cpu.system{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}]
+                }
+              ],
+              "precision": 1,
+              "custom_unit": "%"
+            },
+            "layout": {"x": 2, "y": 0, "width": 2, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "System Memory Used",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.mem.used{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1073741824"}]
+                }
+              ],
+              "precision": 2,
+              "custom_unit": "GB"
+            },
+            "layout": {"x": 4, "y": 0, "width": 2, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "System Memory Free",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.mem.free{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 1073741824"}]
+                }
+              ],
+              "precision": 2,
+              "custom_unit": "GB"
+            },
+            "layout": {"x": 6, "y": 0, "width": 2, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "System Load (1 min)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.load.1{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}]
+                }
+              ],
+              "precision": 2
+            },
+            "layout": {"x": 8, "y": 0, "width": 2, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "System Uptime",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.uptime{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 / 3600"}]
+                }
+              ],
+              "precision": 1,
+              "custom_unit": "hours"
+            },
+            "layout": {"x": 10, "y": 0, "width": 2, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "System CPU Over Time",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "legend_columns": ["avg", "value"],
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {"formula": "query1", "alias": "User"},
+                    {"formula": "query2", "alias": "System"},
+                    {"formula": "query3", "alias": "Idle"}
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.cpu.user{*}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "avg:system.cpu.system{*}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query3",
+                      "query": "avg:system.cpu.idle{*}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "cool", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "area"
+                }
+              ]
+            },
+            "layout": {"x": 0, "y": 2, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "System Load Over Time",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {"formula": "query1", "alias": "1 min"},
+                    {"formula": "query2", "alias": "5 min"},
+                    {"formula": "query3", "alias": "15 min"}
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.load.1{*}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "avg:system.load.5{*}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query3",
+                      "query": "avg:system.load.15{*}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "dog_classic", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "line"
+                }
+              ]
+            },
+            "layout": {"x": 6, "y": 2, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "System Disk Usage %",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [{"formula": "query1 * 100"}],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.disk.in_use{*} by {device}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "orange", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "line"
+                }
+              ],
+              "yaxis": {"min": "0", "max": "100"},
+              "markers": [
+                {"value": "y = 85", "display_type": "error dashed", "label": "Critical (85%)"},
+                {"value": "y = 70", "display_type": "warning dashed", "label": "Warning (70%)"}
+              ]
+            },
+            "layout": {"x": 0, "y": 5, "width": 6, "height": 3}
+          },
+          {
+            "definition": {
+              "title": "System Network Bytes",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {"formula": "query1 / 1048576", "alias": "Received (MB/s)"},
+                    {"formula": "query2 / 1048576", "alias": "Sent (MB/s)"}
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.net.bytes_rcvd{*}.as_rate()"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "avg:system.net.bytes_sent{*}.as_rate()"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {"palette": "green", "line_type": "solid", "line_width": "normal"},
+                  "display_type": "area"
+                }
+              ]
+            },
+            "layout": {"x": 6, "y": 5, "width": 6, "height": 3}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 27, "width": 12, "height": 9}
+    },
+    {
+      "definition": {
+        "title": "🚨 Infrastructure Alerts",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "vivid_pink",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "note",
+              "content": "## Infrastructure Health Alerts\n\nMonitor critical infrastructure KPIs including container health, resource utilization, and system load. Red indicates immediate attention required.",
+              "background_color": "transparent",
+              "font_size": "14",
+              "text_align": "left",
+              "vertical_align": "center",
+              "show_tick": false,
+              "has_padding": true
+            },
+            "layout": {"x": 0, "y": 0, "width": 12, "height": 1}
+          },
+          {
+            "definition": {
+              "title": "Stopped Containers",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:docker.containers.stopped{*}",
+                      "aggregator": "last"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}],
+                  "conditional_formats": [
+                    {"comparator": ">", "value": 5, "palette": "white_on_red"},
+                    {"comparator": ">", "value": 0, "palette": "white_on_yellow"},
+                    {"comparator": "<=", "value": 0, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "precision": 0
+            },
+            "layout": {"x": 0, "y": 1, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "OOM Events",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.memory.oom_events{*}",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}],
+                  "conditional_formats": [
+                    {"comparator": ">", "value": 0, "palette": "white_on_red"},
+                    {"comparator": "<=", "value": 0, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "precision": 0
+            },
+            "layout": {"x": 3, "y": 1, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "CPU Throttled Periods",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:container.cpu.throttled.periods{*}",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1"}],
+                  "conditional_formats": [
+                    {"comparator": ">", "value": 100, "palette": "white_on_red"},
+                    {"comparator": ">", "value": 0, "palette": "white_on_yellow"},
+                    {"comparator": "<=", "value": 0, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "precision": 0
+            },
+            "layout": {"x": 6, "y": 1, "width": 3, "height": 2}
+          },
+          {
+            "definition": {
+              "title": "High CPU Load (>80%)",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:system.cpu.user{*}",
+                      "aggregator": "avg"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "avg:system.cpu.system{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [{"formula": "query1 + query2"}],
+                  "conditional_formats": [
+                    {"comparator": ">=", "value": 80, "palette": "white_on_red"},
+                    {"comparator": ">=", "value": 50, "palette": "white_on_yellow"},
+                    {"comparator": "<", "value": 50, "palette": "white_on_green"}
+                  ]
+                }
+              ],
+              "precision": 1,
+              "custom_unit": "%"
+            },
+            "layout": {"x": 9, "y": 1, "width": 3, "height": 2}
+          }
+        ]
+      },
+      "layout": {"x": 0, "y": 36, "width": 12, "height": 4}
+    }
+  ]
+}
