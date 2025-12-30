@@ -1,0 +1,32 @@
+{
+    "id": 17348390,
+    "name": "[V-Commerce] LLM Prompt Injection / Adversarial Input Detection",
+    "type": "query alert",
+    "query": "max(last_5m):max:llm.security.injection_attempt_score{env:hackathon,service:v-commerce} by {session_id} > 0.7",
+    "message": "## 🔴 SECURITY INCIDENT: Prompt Injection Attempt Detected\n\n**Service:** {{service.name}}\n**Environment:** {{env}}\n\n---\n\n### 🚨 ATTACKER IDENTIFIED\n\n**Attacker Session ID:** {{session_id.name}}\n**Injection Score:** {{value}}\n**Threshold:** 0.7 (high confidence)\n\n---\n\n### What's happening?\nA potential prompt injection or adversarial input attempt has been detected from session `{{session_id.name}}`. The injection attempt score has exceeded 0.7 (high confidence).\n\n### Attack Types Detected\n- System prompt extraction attempts\n- Jailbreak attempts (bypassing safety guardrails)\n- SQL/code injection patterns in prompts\n- Instruction override attempts\n- Data exfiltration via prompt manipulation\n\n### 🔒 Immediate Actions Required\n1. ⚠️ **BLOCK SESSION:** Consider blocking session `{{session_id.name}}`\n2. Review the malicious prompt in LLM Observability traces\n3. Check if this session has other suspicious activity\n4. Preserve logs for security forensics\n5. Rate limit or terminate the session\n\n### Security Runbook\n- Extract full prompt from LLM Observability span for session `{{session_id.name}}`\n- Check session history for escalating attack patterns\n- Review IP geolocation and request headers\n- If confirmed malicious: block session, notify security team\n- Consider adding prompt pattern to blocklist\n\n### Impact Assessment\n- Potential exposure of system prompts\n- Risk of bypassing content safety filters\n- Possible data exfiltration via crafted prompts\n- Model behavior manipulation\n\n### 📊 View Attack Details\n[View LLM Traces for Session →](https://app.datadoghq.com/apm/traces?query=service%3Achatbotservice%20%40session_id%3A{{session_id.name}})\n\n@incident-prompt-injection\n\n🚨 **INCIDENT CREATED** - Security team has been notified. Track attacker session: `{{session_id.name}}`",
+    "tags": [
+        "env:hackathon",
+        "service:v-commerce",
+        "team:security",
+        "detection_rule:injection",
+        "severity:critical",
+        "category:security",
+        "incident:auto-create"
+    ],
+    "options": {
+        "thresholds": {
+            "critical": 0.7,
+            "warning": 0.5
+        },
+        "notify_audit": true,
+        "renotify_interval": 5,
+        "include_tags": true,
+        "require_full_window": false,
+        "evaluation_delay": 0,
+        "escalation_message": "🚨 ESCALATION: Prompt injection attack from session {{session_id.name}} is still ongoing!",
+        "on_missing_data": "resolve",
+        "new_group_delay": 0
+    },
+    "priority": 1,
+    "draft_status": "published"
+}

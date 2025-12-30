@@ -1,0 +1,30 @@
+{
+    "id": 17346356,
+    "name": "[V-Commerce] LLM Interactions-Per-Conversion Anomaly Detection",
+    "type": "metric alert",
+    "query": "avg(last_1h):avg:llm.cost_per_conversion{env:hackathon,service:v-commerce} > 10.0",
+    "message": "## 💬 High AI Interactions Per Conversion Detected\n\n**Service:** {{service.name}}\n**Environment:** {{env}}\n\n### What's happening?\nUsers are requiring more AI chat interactions to convert (add items to cart) than expected. This indicates the chatbot may be less effective at guiding users to purchase decisions.\n\n**Current Interactions/Conversion:** {{value}}\n**Threshold:** 10.0 interactions per cart add\n\n### What does this mean?\nThe `llm.cost_per_conversion` metric tracks **how many AI interactions it takes to get a user to add something to their cart**:\n\n- **Low values (1-3):** Efficient - users convert quickly\n- **Medium values (4-7):** Normal browsing behavior\n- **High values (8+):** Potential issues - users need lots of help but aren't buying\n\n### Business Impact\n- Users may be confused or not finding what they want\n- Chatbot responses may not be actionable enough\n- Potential sign of poor product recommendations\n- Wasted LLM resources on non-converting sessions\n\n### Investigation Steps\n1. Check quality of product recommendations (are they relevant?)\n2. Review conversation patterns for stuck users\n3. Check if PEAU agent suggestions are effective\n4. Look for technical issues blocking cart adds\n5. Compare user behavior by session to identify problem patterns\n\n### Optimization Suggestions\n- Improve product recommendation relevance\n- Add clearer calls-to-action in responses\n- Consider proactive cart suggestions earlier in conversations\n- Review and update the RAG corpus for better product matching\n\n### Related Metrics\n- `llm.interaction_count` - Total interactions per session\n- `llm.conversion_count` - Products added to cart\n- `llm.source:chatbot` vs `llm.source:peau` - Interaction breakdown\n\n@slack-product @slack-llm-alerts",
+    "tags": [
+        "env:hackathon",
+        "service:v-commerce",
+        "team:product",
+        "detection_rule:conversion_efficiency",
+        "severity:medium",
+        "category:business"
+    ],
+    "options": {
+        "thresholds": {
+            "critical": 10,
+            "warning": 7
+        },
+        "notify_no_data": false,
+        "renotify_interval": 60,
+        "include_tags": true,
+        "require_full_window": true,
+        "new_host_delay": 300,
+        "evaluation_delay": 300,
+        "notify_audit": false
+    },
+    "priority": 3,
+    "draft_status": "published"
+}

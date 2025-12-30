@@ -1,20 +1,18 @@
 {
   "title": "V-Commerce LLM Observability Dashboard",
   "description": "Comprehensive observability for V-Commerce AI-powered e-commerce platform. Includes LLM metrics, detection rules status, and AI-powered insights.",
-  "layout_type": "ordered",
-  "tags": [
-    "team:llm"
-  ],
   "widgets": [
     {
+      "id": 197943320934647,
       "definition": {
-        "title": "\ud83c\udfe5 Application Health Overview",
+        "title": "🏥 Application Health Overview",
         "title_align": "left",
-        "type": "group",
         "background_color": "blue",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 6049010613301083,
             "definition": {
               "title": "Request Rate",
               "title_size": "16",
@@ -52,6 +50,7 @@
             }
           },
           {
+            "id": 7891782602790207,
             "definition": {
               "title": "Error Rate",
               "title_size": "16",
@@ -106,6 +105,7 @@
             }
           },
           {
+            "id": 1835661758553411,
             "definition": {
               "title": "Avg Latency (ms)",
               "title_size": "16",
@@ -130,8 +130,8 @@
                 }
               ],
               "autoscale": true,
-              "precision": 0,
               "custom_unit": "ms",
+              "precision": 0,
               "timeseries_background": {
                 "type": "area"
               }
@@ -144,6 +144,7 @@
             }
           },
           {
+            "id": 5133198223773301,
             "definition": {
               "title": "Active Services",
               "title_size": "16",
@@ -178,6 +179,7 @@
             }
           },
           {
+            "id": 6750815965656013,
             "definition": {
               "title": "Request Rate by Service",
               "title_size": "16",
@@ -224,6 +226,7 @@
             }
           },
           {
+            "id": 2081960020337228,
             "definition": {
               "title": "P95 Latency by Service",
               "title_size": "16",
@@ -269,6 +272,7 @@
             }
           },
           {
+            "id": 1725679224686255,
             "definition": {
               "title": "Errors by Service",
               "title_size": "16",
@@ -308,6 +312,7 @@
             }
           },
           {
+            "id": 8953897830863639,
             "definition": {
               "title": "Top Services by Request Count",
               "title_size": "16",
@@ -315,15 +320,6 @@
               "type": "toplist",
               "requests": [
                 {
-                  "formulas": [
-                    {
-                      "formula": "query1",
-                      "limit": {
-                        "count": 10,
-                        "order": "desc"
-                      }
-                    }
-                  ],
                   "queries": [
                     {
                       "data_source": "metrics",
@@ -332,7 +328,22 @@
                       "aggregator": "sum"
                     }
                   ],
-                  "response_format": "scalar"
+                  "response_format": "scalar",
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "sort": {
+                    "count": 10,
+                    "order_by": [
+                      {
+                        "type": "formula",
+                        "index": 0,
+                        "order": "desc"
+                      }
+                    ]
+                  }
                 }
               ]
             },
@@ -353,14 +364,16 @@
       }
     },
     {
+      "id": 3113158701836397,
       "definition": {
-        "title": "\ud83e\udd16 LLM Observability",
+        "title": "🤖 LLM Observability",
         "title_align": "left",
-        "type": "group",
         "background_color": "purple",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 5256337151130923,
             "definition": {
               "title": "Total Tokens (Input)",
               "title_size": "16",
@@ -398,6 +411,7 @@
             }
           },
           {
+            "id": 2968167068234266,
             "definition": {
               "title": "Total Tokens (Output)",
               "title_size": "16",
@@ -435,6 +449,7 @@
             }
           },
           {
+            "id": 8958336586716565,
             "definition": {
               "title": "Total Cost (USD)",
               "title_size": "16",
@@ -458,8 +473,8 @@
                   ]
                 }
               ],
-              "precision": 4,
               "custom_unit": "$",
+              "precision": 4,
               "timeseries_background": {
                 "type": "area"
               }
@@ -472,6 +487,7 @@
             }
           },
           {
+            "id": 5456722267143468,
             "definition": {
               "title": "Cost Per Conversion",
               "title_size": "16",
@@ -495,8 +511,8 @@
                   ]
                 }
               ],
-              "precision": 4,
               "custom_unit": "$",
+              "precision": 4,
               "timeseries_background": {
                 "type": "area"
               }
@@ -509,6 +525,7 @@
             }
           },
           {
+            "id": 3361873462901792,
             "definition": {
               "title": "Quality Score",
               "title_size": "16",
@@ -562,6 +579,7 @@
             }
           },
           {
+            "id": 4154801283368042,
             "definition": {
               "title": "LLM Requests",
               "title_size": "16",
@@ -599,6 +617,7 @@
             }
           },
           {
+            "id": 5000159823234083,
             "definition": {
               "title": "Token Usage Over Time",
               "title_size": "16",
@@ -653,6 +672,7 @@
             }
           },
           {
+            "id": 3068954464595612,
             "definition": {
               "title": "LLM Cost Over Time (USD)",
               "title_size": "16",
@@ -692,6 +712,7 @@
             }
           },
           {
+            "id": 5812886150833012,
             "definition": {
               "title": "LLM Request Duration by Service",
               "title_size": "16",
@@ -731,6 +752,7 @@
             }
           },
           {
+            "id": 8276487919692373,
             "definition": {
               "title": "Response Quality Score",
               "title_size": "16",
@@ -767,9 +789,9 @@
               },
               "markers": [
                 {
+                  "label": "Threshold",
                   "value": "y = 0.6",
-                  "display_type": "error dashed",
-                  "label": "Threshold"
+                  "display_type": "error dashed"
                 }
               ]
             },
@@ -790,14 +812,16 @@
       }
     },
     {
+      "id": 6026287969253620,
       "definition": {
-        "title": "\ud83d\udea8 Detection Rules Overview",
+        "title": "🚨 Detection Rules Overview",
         "title_align": "left",
-        "type": "group",
         "background_color": "vivid_yellow",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 266238370268916,
             "definition": {
               "type": "note",
               "content": "## Detection Rules Dashboard\n\nReal-time monitoring of all 5 AI/LLM detection rules. Each rule tracks specific anomalies to protect your AI-powered e-commerce platform.",
@@ -811,11 +835,12 @@
             "layout": {
               "x": 0,
               "y": 0,
-              "width": 8,
-              "height": 1
+              "width": 6,
+              "height": 2
             }
           },
           {
+            "id": 2125731440265256,
             "definition": {
               "title": "All Detection Rules Status",
               "title_size": "16",
@@ -824,17 +849,20 @@
               "display_format": "countsAndList",
               "color_preference": "text",
               "hide_zero_counts": false,
-              "show_last_triggered": true,
+              "show_status": true,
+              "last_triggered_format": "relative",
               "query": "tag:(detection_rule:*)",
               "sort": "status,asc",
               "count": 5,
               "start": 0,
-              "summary_type": "monitors"
+              "summary_type": "monitors",
+              "show_priority": false,
+              "show_last_triggered": true
             },
             "layout": {
-              "x": 8,
+              "x": 6,
               "y": 0,
-              "width": 4,
+              "width": 6,
               "height": 2
             }
           }
@@ -848,14 +876,16 @@
       }
     },
     {
+      "id": 4324316744093922,
       "definition": {
-        "title": "\ud83d\udd34 Rule 1: Prompt Injection Detection",
+        "title": "🔴 Rule 1: Prompt Injection Detection",
         "title_align": "left",
-        "type": "group",
         "background_color": "red",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 5207772752522136,
             "definition": {
               "type": "note",
               "content": "**Detects adversarial prompts** attempting to manipulate AI services through jailbreaks, system prompt extraction, or SQL injection patterns.",
@@ -874,6 +904,7 @@
             }
           },
           {
+            "id": 5740431806117766,
             "definition": {
               "title": "Max Injection Score",
               "title_size": "16",
@@ -927,6 +958,7 @@
             }
           },
           {
+            "id": 6152106056634606,
             "definition": {
               "title": "LLM Requests Analyzed",
               "title_size": "16",
@@ -950,8 +982,8 @@
                   ]
                 }
               ],
-              "precision": 0,
               "autoscale": true,
+              "precision": 0,
               "timeseries_background": {
                 "type": "bars"
               }
@@ -964,6 +996,7 @@
             }
           },
           {
+            "id": 1188791394402276,
             "definition": {
               "title": "Injection Score Over Time",
               "title_size": "16",
@@ -1009,14 +1042,14 @@
               },
               "markers": [
                 {
+                  "label": "Critical (0.7)",
                   "value": "y = 0.7",
-                  "display_type": "error dashed",
-                  "label": "Critical (0.7)"
+                  "display_type": "error dashed"
                 },
                 {
+                  "label": "Warning (0.5)",
                   "value": "y = 0.5",
-                  "display_type": "warning dashed",
-                  "label": "Warning (0.5)"
+                  "display_type": "warning dashed"
                 }
               ]
             },
@@ -1033,18 +1066,21 @@
         "x": 0,
         "y": 21,
         "width": 12,
-        "height": 3
+        "height": 3,
+        "is_column_break": true
       }
     },
     {
+      "id": 782787205467038,
       "definition": {
-        "title": "\ud83d\udcac Rule 2: AI Chat Efficiency (Interactions Per Conversion)",
+        "title": "💬 Rule 2: AI Chat Efficiency (Interactions Per Conversion)",
         "title_align": "left",
-        "type": "group",
         "background_color": "vivid_purple",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 2065967437258910,
             "definition": {
               "type": "note",
               "content": "**Measures AI chat efficiency** - how many LLM interactions it takes for a user to add a product to cart. Lower = more efficient.",
@@ -1063,6 +1099,7 @@
             }
           },
           {
+            "id": 6064104307909899,
             "definition": {
               "title": "Avg Interactions/Conversion",
               "title_size": "16",
@@ -1103,8 +1140,8 @@
                   ]
                 }
               ],
-              "precision": 1,
               "custom_unit": "chats",
+              "precision": 1,
               "timeseries_background": {
                 "type": "area"
               }
@@ -1117,6 +1154,7 @@
             }
           },
           {
+            "id": 2838713236412044,
             "definition": {
               "title": "Total LLM Interactions",
               "title_size": "16",
@@ -1140,8 +1178,8 @@
                   ]
                 }
               ],
-              "precision": 0,
               "autoscale": true,
+              "precision": 0,
               "timeseries_background": {
                 "type": "bars"
               }
@@ -1154,6 +1192,7 @@
             }
           },
           {
+            "id": 755647052377596,
             "definition": {
               "title": "Interactions Per Conversion Over Time",
               "title_size": "16",
@@ -1189,14 +1228,14 @@
               },
               "markers": [
                 {
+                  "label": "Critical (10+ chats)",
                   "value": "y = 10",
-                  "display_type": "error dashed",
-                  "label": "Critical (10+ chats)"
+                  "display_type": "error dashed"
                 },
                 {
+                  "label": "Warning (7+ chats)",
                   "value": "y = 7",
-                  "display_type": "warning dashed",
-                  "label": "Warning (7+ chats)"
+                  "display_type": "warning dashed"
                 }
               ]
             },
@@ -1217,14 +1256,16 @@
       }
     },
     {
+      "id": 687698289997116,
       "definition": {
-        "title": "\u26a0\ufe0f Rule 3: Response Quality Degradation",
+        "title": "⚠️ Rule 3: Response Quality Degradation",
         "title_align": "left",
-        "type": "group",
         "background_color": "vivid_orange",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 8619860378714665,
             "definition": {
               "type": "note",
               "content": "**Monitors LLM response quality** - tracks coherence, relevance, and helpfulness. Low scores indicate degraded user experience.",
@@ -1243,6 +1284,7 @@
             }
           },
           {
+            "id": 3714183621768113,
             "definition": {
               "title": "Avg Quality Score",
               "title_size": "16",
@@ -1296,6 +1338,7 @@
             }
           },
           {
+            "id": 8889041814502080,
             "definition": {
               "title": "Min Quality Score",
               "title_size": "16",
@@ -1349,6 +1392,7 @@
             }
           },
           {
+            "id": 3826174969835113,
             "definition": {
               "title": "Quality Score Over Time",
               "title_size": "16",
@@ -1394,9 +1438,9 @@
               },
               "markers": [
                 {
+                  "label": "Critical Threshold (0.6)",
                   "value": "y = 0.6",
-                  "display_type": "error dashed",
-                  "label": "Critical Threshold (0.6)"
+                  "display_type": "error dashed"
                 }
               ]
             },
@@ -1417,14 +1461,16 @@
       }
     },
     {
+      "id": 7615814610157262,
       "definition": {
-        "title": "\ud83d\udd2e Rule 4: Predictive Capacity Alert",
+        "title": "🔮 Rule 4: Predictive Capacity Alert",
         "title_align": "left",
-        "type": "group",
         "background_color": "vivid_blue",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 2158516082575278,
             "definition": {
               "type": "note",
               "content": "**AI-powered failure prediction** - Gemini analyzes metrics to predict errors before they happen. High probability = imminent issues.",
@@ -1443,6 +1489,7 @@
             }
           },
           {
+            "id": 5627011250914790,
             "definition": {
               "title": "Error Probability",
               "title_size": "16",
@@ -1483,8 +1530,8 @@
                   ]
                 }
               ],
-              "precision": 0,
               "custom_unit": "%",
+              "precision": 0,
               "timeseries_background": {
                 "type": "area"
               }
@@ -1497,6 +1544,7 @@
             }
           },
           {
+            "id": 5710776252741040,
             "definition": {
               "title": "24h Cost Forecast",
               "title_size": "16",
@@ -1520,8 +1568,8 @@
                   ]
                 }
               ],
-              "precision": 2,
               "custom_unit": "$",
+              "precision": 2,
               "timeseries_background": {
                 "type": "area"
               }
@@ -1534,6 +1582,7 @@
             }
           },
           {
+            "id": 6096763186565897,
             "definition": {
               "title": "Error Probability Trend",
               "title_size": "16",
@@ -1569,9 +1618,9 @@
               },
               "markers": [
                 {
+                  "label": "Alert Threshold (80%)",
                   "value": "y = 0.8",
-                  "display_type": "error dashed",
-                  "label": "Alert Threshold (80%)"
+                  "display_type": "error dashed"
                 }
               ]
             },
@@ -1592,14 +1641,16 @@
       }
     },
     {
+      "id": 5609151361924302,
       "definition": {
-        "title": "\ud83d\uddbc\ufe0f Rule 5: Multimodal Security Attack Detection (Try-On Service)",
+        "title": "🖼️ Rule 5: Multimodal Security Attack Detection (Try-On Service)",
         "title_align": "left",
-        "type": "group",
         "background_color": "vivid_pink",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 1348904960625896,
             "definition": {
               "type": "note",
               "content": "**Detects image-based attacks** on the Try-On service including decompression bombs (memory exhaustion) and malicious/invalid image files.",
@@ -1618,6 +1669,7 @@
             }
           },
           {
+            "id": 8646115852407539,
             "definition": {
               "title": "Total Attacks",
               "title_size": "16",
@@ -1630,18 +1682,24 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
+                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}.as_count()",
                       "aggregator": "sum"
                     },
                     {
                       "data_source": "metrics",
                       "name": "query2",
-                      "query": "sum:tryon.security.invalid_image{service:tryonservice}",
+                      "query": "sum:tryon.security.invalid_image{service:tryonservice}.as_count()",
                       "aggregator": "sum"
                     }
                   ],
                   "formulas": [
                     {
+                      "number_format": {
+                        "unit": {
+                          "label": "attacks",
+                          "type": "custom_unit_label"
+                        }
+                      },
                       "formula": "query1 + query2"
                     }
                   ],
@@ -1665,7 +1723,6 @@
                 }
               ],
               "precision": 0,
-              "custom_unit": "attacks",
               "timeseries_background": {
                 "type": "bars"
               }
@@ -1678,6 +1735,7 @@
             }
           },
           {
+            "id": 8765726517640945,
             "definition": {
               "title": "Decompression Bombs",
               "title_size": "16",
@@ -1690,12 +1748,18 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
+                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}.as_count()",
                       "aggregator": "sum"
                     }
                   ],
                   "formulas": [
                     {
+                      "number_format": {
+                        "unit": {
+                          "label": "💣",
+                          "type": "custom_unit_label"
+                        }
+                      },
                       "formula": "query1"
                     }
                   ],
@@ -1719,7 +1783,6 @@
                 }
               ],
               "precision": 0,
-              "custom_unit": "\ud83d\udca3",
               "timeseries_background": {
                 "type": "area"
               }
@@ -1732,6 +1795,7 @@
             }
           },
           {
+            "id": 5071898227108491,
             "definition": {
               "title": "Invalid Images",
               "title_size": "16",
@@ -1744,12 +1808,18 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:tryon.security.invalid_image{service:tryonservice}",
+                      "query": "sum:tryon.security.invalid_image{service:tryonservice}.as_count()",
                       "aggregator": "sum"
                     }
                   ],
                   "formulas": [
                     {
+                      "number_format": {
+                        "unit": {
+                          "label": "🚫",
+                          "type": "custom_unit_label"
+                        }
+                      },
                       "formula": "query1"
                     }
                   ],
@@ -1773,7 +1843,6 @@
                 }
               ],
               "precision": 0,
-              "custom_unit": "\ud83d\udeab",
               "timeseries_background": {
                 "type": "area"
               }
@@ -1786,35 +1855,43 @@
             }
           },
           {
+            "id": 1407703505056181,
             "definition": {
               "title": "Attack Types Over Time",
               "title_size": "16",
               "title_align": "left",
               "show_legend": true,
               "legend_layout": "auto",
+              "legend_columns": [
+                "avg",
+                "min",
+                "max",
+                "value",
+                "sum"
+              ],
               "type": "timeseries",
               "requests": [
                 {
                   "formulas": [
                     {
-                      "formula": "query1",
-                      "alias": "Decompression Bombs \ud83d\udca3"
+                      "alias": "Decompression Bombs 💣",
+                      "formula": "query1"
                     },
                     {
-                      "formula": "query2",
-                      "alias": "Invalid Images \ud83d\udeab"
+                      "alias": "Invalid Images 🚫",
+                      "formula": "query2"
                     }
                   ],
                   "queries": [
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}"
+                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}.as_count()"
                     },
                     {
                       "data_source": "metrics",
                       "name": "query2",
-                      "query": "sum:tryon.security.invalid_image{service:tryonservice}"
+                      "query": "sum:tryon.security.invalid_image{service:tryonservice}.as_count()"
                     }
                   ],
                   "response_format": "timeseries",
@@ -1828,9 +1905,9 @@
               ],
               "markers": [
                 {
+                  "label": "Critical (5+ attacks/5min)",
                   "value": "y = 5",
-                  "display_type": "error dashed",
-                  "label": "Critical (5+ attacks/5min)"
+                  "display_type": "error dashed"
                 }
               ]
             },
@@ -1851,14 +1928,16 @@
       }
     },
     {
+      "id": 2646936081033476,
       "definition": {
-        "title": "\ud83d\udecd\ufe0f LLM Services Deep Dive",
+        "title": "🛍️ LLM Services Deep Dive",
         "title_align": "left",
-        "type": "group",
         "background_color": "green",
+        "type": "group",
         "layout_type": "ordered",
         "widgets": [
           {
+            "id": 8625442389197191,
             "definition": {
               "title": "Chatbot Service Requests",
               "title_size": "16",
@@ -1897,6 +1976,7 @@
             }
           },
           {
+            "id": 1355815402412540,
             "definition": {
               "title": "PEAU Agent Requests",
               "title_size": "16",
@@ -1935,6 +2015,7 @@
             }
           },
           {
+            "id": 6245363209155465,
             "definition": {
               "title": "Try-On Service Requests",
               "title_size": "16",
@@ -1973,6 +2054,7 @@
             }
           },
           {
+            "id": 1633146020831170,
             "definition": {
               "title": "Token Usage by Service",
               "title_size": "16",
@@ -1980,15 +2062,6 @@
               "type": "toplist",
               "requests": [
                 {
-                  "formulas": [
-                    {
-                      "formula": "query1",
-                      "limit": {
-                        "count": 10,
-                        "order": "desc"
-                      }
-                    }
-                  ],
                   "queries": [
                     {
                       "data_source": "metrics",
@@ -1997,7 +2070,22 @@
                       "aggregator": "sum"
                     }
                   ],
-                  "response_format": "scalar"
+                  "response_format": "scalar",
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "sort": {
+                    "count": 10,
+                    "order_by": [
+                      {
+                        "type": "formula",
+                        "index": 0,
+                        "order": "desc"
+                      }
+                    ]
+                  }
                 }
               ]
             },
@@ -2009,6 +2097,7 @@
             }
           },
           {
+            "id": 2237425082227402,
             "definition": {
               "title": "LLM Cost by Service",
               "title_size": "16",
@@ -2016,15 +2105,6 @@
               "type": "toplist",
               "requests": [
                 {
-                  "formulas": [
-                    {
-                      "formula": "query1",
-                      "limit": {
-                        "count": 10,
-                        "order": "desc"
-                      }
-                    }
-                  ],
                   "queries": [
                     {
                       "data_source": "metrics",
@@ -2033,7 +2113,22 @@
                       "aggregator": "sum"
                     }
                   ],
-                  "response_format": "scalar"
+                  "response_format": "scalar",
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "sort": {
+                    "count": 10,
+                    "order_by": [
+                      {
+                        "type": "formula",
+                        "index": 0,
+                        "order": "desc"
+                      }
+                    ]
+                  }
                 }
               ]
             },
@@ -2048,10 +2143,18 @@
       },
       "layout": {
         "x": 0,
-        "y": 27,
+        "y": 36,
         "width": 12,
         "height": 7
       }
     }
-  ]
+  ],
+  "template_variables": [],
+  "layout_type": "ordered",
+  "notify_list": [],
+  "reflow_type": "fixed",
+  "tags": [
+    "team:llm"
+  ],
+  "pause_auto_refresh": false
 }

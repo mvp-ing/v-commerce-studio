@@ -1,0 +1,32 @@
+{
+    "id": 17348195,
+    "name": "[V-Commerce] Multimodal Security Attack Detection - Try-On Service",
+    "type": "query alert",
+    "query": "sum(last_5m):sum:tryon.security.decompression_bomb{env:hackathon,service:tryonservice} by {user_id}.as_count() + sum:tryon.security.invalid_image{env:hackathon,service:tryonservice} by {user_id}.as_count() > 3",
+    "message": "## 🔴 SECURITY INCIDENT: Multimodal Attack Detected on Try-On Service\n\n**Service:** {{service.name}}\n**Environment:** {{env}}\n\n---\n\n### 🚨 ATTACKER IDENTIFIED\n\n**Attacker User ID(s):** {{user_id.name}}\n**Attack Count (5min):** {{value}}\n**Threshold:** 3 attacks per user per 5 minutes\n\n---\n\n### What's happening?\nThe Try-On Service has detected multiple suspicious image uploads from the same user that may indicate an ongoing attack. This includes decompression bomb attempts and malformed/malicious image files.\n\n### Attack Types Detected\n- **Decompression Bombs**: Malicious images designed to exhaust server memory when decompressed (e.g., a 1KB file that expands to gigabytes)\n- **Invalid/Malicious Images**: Corrupted files, polyglot files (images hiding malicious payloads), or files designed to exploit image processing vulnerabilities\n\n### 🔒 Immediate Actions Required\n1. ⚠️ **BLOCK USER:** Consider immediately blocking user `{{user_id.name}}`\n2. Review uploaded file patterns for user `{{user_id.name}}` in APM traces\n3. Check if this user has other suspicious activity across services\n4. Preserve logs for security forensics\n5. Check server resource utilization (memory, CPU)\n\n### Security Runbook\n- Extract request details from Datadog APM traces for user `{{user_id.name}}`\n- Check user's session history for patterns of malicious behavior\n- If sustained attack: enable stricter file validation or temporary service protection mode\n- Notify security team if attack volume is high\n- Consider implementing CAPTCHA or additional verification for this user\n\n### Impact Assessment\n- Service availability may be degraded under attack\n- Memory exhaustion could crash pods\n- Potential for data exfiltration via polyglot files\n\n### 📊 View Attack Details\n[View Try-On Security Traces →](https://app.datadoghq.com/apm/traces?query=service%3Atryonservice%20%40user_id%3A{{user_id.name}})\n\n@incident-multimodal\n\n🚨 **INCIDENT CREATED** - Security team has been notified. Track attacker: `{{user_id.name}}`",
+    "tags": [
+        "env:hackathon",
+        "service:tryonservice",
+        "team:security",
+        "detection_rule:multimodal_security",
+        "severity:critical",
+        "category:security",
+        "incident:auto-create"
+    ],
+    "options": {
+        "thresholds": {
+            "critical": 3,
+            "warning": 1
+        },
+        "notify_audit": true,
+        "renotify_interval": 5,
+        "include_tags": true,
+        "require_full_window": false,
+        "evaluation_delay": 0,
+        "escalation_message": "🚨 ESCALATION: Attack from user {{user_id.name}} is still ongoing! Immediate action required.",
+        "on_missing_data": "default",
+        "new_group_delay": 0
+    },
+    "priority": 1,
+    "draft_status": "published"
+}

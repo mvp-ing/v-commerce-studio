@@ -1,0 +1,30 @@
+{
+	"id": 17334140,
+	"name": "[V-Commerce] LLM Response Quality Degradation Alert",
+	"type": "metric alert",
+	"query": "avg(last_5m):avg:llm.response.quality_score{env:hackathon,service:v-commerce} < 0.6",
+	"message": "## ⚠️ LLM Response Quality Degradation Detected\n\n**Service:** {{service.name}}\n**Environment:** {{env}}\n\n### What's happening?\nThe LLM response quality score has dropped below acceptable levels. This indicates the chatbot/assistant responses are becoming less helpful to users.\n\n**Current Quality Score:** {{value}}\n**Threshold:** 0.6 (minimum acceptable)\n\n### Quality Signals Affected\n- Response coherence and relevance\n- Product ID extraction success rate\n- Response length appropriateness\n- User engagement with recommendations\n\n### Potential Root Causes\n1. Model being rate-limited by Vertex AI\n2. Context window overflow (too much history)\n3. RAG retrieval returning irrelevant documents\n4. Recent prompt/system message changes\n5. Model endpoint health issues\n\n### Investigation Steps\n1. Check Vertex AI quotas and rate limits\n2. Review sample degraded responses in LLM Observability\n3. Verify model endpoint latency (high latency = potential throttling)\n4. Check recent deployments to LLM services\n5. Review context window usage patterns\n\n### Runbook\n- Verify Vertex AI quotas\n- Check model endpoint health in GCP Console\n- Review recent prompt changes in git history\n- Consider fallback to cached responses if critical\n\n@slack-llm-alerts @pagerduty-oncall",
+	"tags": [
+		"env:hackathon",
+		"service:v-commerce",
+		"team:llm",
+		"detection_rule:quality",
+		"severity:high",
+		"category:quality"
+	],
+	"options": {
+		"thresholds": {
+			"critical": 0.6,
+			"warning": 0.7
+		},
+		"notify_no_data": false,
+		"renotify_interval": 15,
+		"include_tags": true,
+		"require_full_window": true,
+		"new_host_delay": 300,
+		"evaluation_delay": 60,
+		"notify_audit": false
+	},
+	"priority": 2,
+	"draft_status": "published"
+}
