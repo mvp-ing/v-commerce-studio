@@ -275,7 +275,7 @@ For each monitor, add runbook link in the message:
 
 ```
 {{#is_alert}}
-📕 **Runbook:** https://github.com/v-commerce/v-commerce/blob/main/docs/RUNBOOKS.md#<section>
+📕 **Runbook:** https://github.com/mvp-ing/v-commerce-studio/blob/main/docs/RUNBOOKS.md#<section>
 {{/is_alert}}
 ```
 
