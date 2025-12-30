@@ -6,19 +6,18 @@ This script generates realistic traffic patterns against the V-Commerce
 frontend in order to:
 
 - Establish a **normal traffic baseline**
-- Trigger the 5 LLM detection rules configured in Datadog:
-  1. Hallucination Detection        -> invalid product recommendations
-  2. Prompt Injection Detection     -> adversarial prompts
-  3. Cost-Per-Conversion Anomaly    -> heavy, expensive conversations
-  4. Response Quality Degradation   -> low-quality / noisy prompts
-  5. Predictive Capacity Alert      -> sustained high load / cost
+- Trigger the LLM detection rules configured in Datadog:
+  1. Prompt Injection Detection     -> adversarial prompts
+  2. Interactions-Per-Conversion    -> measure AI chat efficiency
+  3. Response Quality Degradation   -> low-quality / noisy prompts
+  4. Predictive Capacity Alert      -> sustained high load / cost
 
 Usage:
     source .env.datadog
     python3 scripts/traffic-generator.py --base-url https://your-app-url.com
 
 You can also run individual scenarios, e.g.:
-    python3 scripts/traffic-generator.py --base-url https://your-app-url.com --scenario hallucination
+    python3 scripts/traffic-generator.py --base-url https://your-app-url.com --scenario injection
 """
 
 import argparse
@@ -177,36 +176,6 @@ class TrafficGenerator:
         }
         headers = {"Content-Type": "application/json"}
         return self._post("/chat/stream", json=payload, headers=headers)
-
-    # ------------------------------------------------------------------
-    # Scenario 1: Hallucination trigger
-    # ------------------------------------------------------------------
-    def trigger_hallucination_scenario(self, count: int = 20):
-        """
-        Send prompts that are likely to cause invalid product recommendations:
-        - Ask for products that are NOT in the catalog
-        - Use very specific brand/model names that don't exist
-        - Include [TEST_HALLUCINATION] to trigger simulated high metrics
-
-        This should increase the custom metric:
-            llm.recommendation.invalid_product_rate
-        """
-        print(f"[HALLUCINATION] Sending {count} hallucination-inducing prompts...")
-        prompts = [
-            # These include [TEST_HALLUCINATION] to trigger simulated high invalid_product_rate
-            "[TEST_HALLUCINATION] Show me the iPhone 15 Pro Ultra Max Limited Edition.",
-            "[TEST_HALLUCINATION] I want the Nike Air Jordan 25 Retro Galaxy shoes.",
-            "[TEST_HALLUCINATION] Find me a Samsung Galaxy S30 with holographic display.",
-            "[TEST_HALLUCINATION] Recommend products from the brand 'QuantumWear'.",
-            "[TEST_HALLUCINATION] Do you have the Sony PlayStation 6 VR Ultimate bundle?",
-        ]
-
-        for i in range(count):
-            prompt = random.choice(prompts)
-            self._chat_stream(prompt, session_id="tg-hallucination")
-            time.sleep(0.5)
-
-        print("[HALLUCINATION] Scenario complete.")
 
     # ------------------------------------------------------------------
     # Scenario 2: Prompt injection / adversarial trigger
@@ -437,6 +406,154 @@ class TrafficGenerator:
                 time.sleep(0.4)
 
         print("[COST] Cost spike scenario complete.")
+
+    # ------------------------------------------------------------------
+    # Scenario 3b: Interactions-Per-Conversion Test (TRUE conversion tracking)
+    # ------------------------------------------------------------------
+    def trigger_cost_per_conversion_scenario(self, users: int = 5, chats_before_cart: int = 3, 
+                                              items_to_add: int = 2, peau_triggers: int = 1):
+        """
+        Test the INTERACTIONS-PER-CONVERSION calculation:
+        
+        llm.cost_per_conversion = total_interactions / cart_items
+        
+        This metric shows how many AI chat interactions it takes to convert a user
+        (i.e., get them to add something to their cart). This is much more intuitive
+        than fractional dollar costs like $0.00022.
+        
+        Example values:
+        - 1 interaction → 3 cart items = 0.33 (very efficient)
+        - 6 interactions → 1 cart item = 6.0 (less efficient)
+        - 8 interactions → 0 cart items = 8.0 (all effort, no conversion)
+        
+        This simulates realistic user journeys:
+        1. User chats with the assistant (accumulates LLM interactions)
+        2. User adds items to cart (creates conversions)
+        3. Optionally view products multiple times to trigger PEAU agent
+        
+        The scenario creates different user patterns:
+        - High-conversion users: few chats, many cart adds (low interactions/conversion)
+        - Low-conversion users: many chats, few cart adds (high interactions/conversion)
+        - Zero-conversion users: only chats, no cart adds (high value = wasted effort)
+        
+        Args:
+            users: Number of user sessions to simulate
+            chats_before_cart: Average chat messages before adding to cart
+            items_to_add: Average items each user adds to cart
+            peau_triggers: Number of product views to trigger PEAU suggestions
+        
+        Metrics to observe in Datadog:
+        - llm.cost_per_conversion: Interactions per conversion (values like 2, 5, 10)
+        - llm.interaction_count: Total LLM interactions per user
+        - llm.conversion_count: Number of products in cart
+        - llm.source:chatbot vs llm.source:peau: Split of interactions
+        """
+        print(f"[COST-PER-CONVERSION] Testing true cost-per-conversion with {users} users...")
+        print(f"  Config: {chats_before_cart} chats, {items_to_add} cart adds, {peau_triggers} PEAU triggers per user")
+        
+        shopping_prompts = [
+            "What sunglasses do you recommend for summer?",
+            "Show me products in the accessories category.",
+            "I'm looking for a nice gift under $50.",
+            "What's popular right now in your store?",
+            "Help me find something for a birthday party.",
+            "Do you have any deals on clothing?",
+            "What would you recommend for outdoor activities?",
+            "Show me your best-selling products.",
+        ]
+        
+        follow_up_prompts = [
+            "Tell me more about that product.",
+            "What colors does it come in?",
+            "Is this good quality?",
+            "Would this make a good gift?",
+            "What else do you have like this?",
+        ]
+        
+        for user_idx in range(users):
+            # Create a consistent session/user ID for this user journey
+            user_id = f"cost-test-user-{user_idx}-{int(time.time())}"
+            
+            # Determine user behavior pattern - ALL ZERO CONVERSION for testing
+            behavior = "zero_conversion"  # Force all users to zero conversion
+            
+            if behavior == "high_conversion":
+                # Efficient shopper: few chats, adds items quickly
+                num_chats = max(1, chats_before_cart - 2)
+                num_cart_adds = items_to_add + 1
+                print(f"  [User {user_idx+1}/{users}] HIGH CONVERSION: {num_chats} chats → {num_cart_adds} cart adds")
+            elif behavior == "low_conversion":
+                # Browsing shopper: many chats, few cart adds
+                num_chats = chats_before_cart + random.randint(2, 4)
+                num_cart_adds = max(1, items_to_add - 1)
+                print(f"  [User {user_idx+1}/{users}] LOW CONVERSION: {num_chats} chats → {num_cart_adds} cart adds")
+            else:
+                # Window shopper: only chats, no cart adds
+                num_chats = chats_before_cart + random.randint(3, 6)
+                num_cart_adds = 0
+                print(f"  [User {user_idx+1}/{users}] ZERO CONVERSION: {num_chats} chats → 0 cart adds")
+            
+            # Step 1: Initial chat messages (accumulates chatbot LLM cost)
+            print(f"    📝 Sending {num_chats} chat messages...")
+            for chat_idx in range(num_chats):
+                if chat_idx == 0:
+                    prompt = random.choice(shopping_prompts)
+                else:
+                    prompt = random.choice(follow_up_prompts)
+                
+                # Use the same session_id so costs are tracked together
+                self._chat_stream(prompt, session_id=user_id)
+                time.sleep(0.3)
+            
+            # Step 2: Add items to cart (creates conversions)
+            if num_cart_adds > 0:
+                print(f"    🛒 Adding {num_cart_adds} items to cart...")
+                products_to_add = random.sample(self.known_product_ids, min(num_cart_adds, len(self.known_product_ids)))
+                
+                for product_id in products_to_add:
+                    # First view the product (might trigger PEAU)
+                    self._get(f"/product/{product_id}")
+                    time.sleep(0.2)
+                    
+                    # Then add to cart
+                    self._post(
+                        "/cart",
+                        data={
+                            "product_id": product_id,
+                            "quantity": "1",
+                        },
+                    )
+                    time.sleep(0.2)
+            
+            # Step 3: View products multiple times to trigger PEAU agent
+            if peau_triggers > 0:
+                print(f"    👀 Viewing products to trigger PEAU ({peau_triggers}x)...")
+                for _ in range(peau_triggers):
+                    product_id = random.choice(self.known_product_ids)
+                    # Multiple views of same product can trigger PEAU "hesitation" messages
+                    for _ in range(random.randint(3, 5)):
+                        self._get(f"/product/{product_id}")
+                        time.sleep(0.1)
+            
+            # Step 4: Final chat to emit updated cost-per-conversion
+            print(f"    📊 Final chat to emit metrics...")
+            self._chat_stream("Thanks for your help!", session_id=user_id)
+            
+            time.sleep(0.5)  # Brief pause between users
+        
+        print("[COST-PER-CONVERSION] Scenario complete!")
+        print("")
+        print("  📊 Check Datadog for these metrics:")
+        print("     - llm.cost_per_conversion: AI interactions per conversion (e.g., 2.0, 5.0, 10.0)")
+        print("     - llm.interaction_count: Total LLM interactions per user session")
+        print("     - llm.conversion_count: Products added to cart")
+        print("     - Filter by llm.source to see chatbot vs peau interactions")
+        print("")
+        print("  💡 Expected patterns:")
+        print("     - HIGH_CONVERSION users: Low value (e.g., 0.5-1.0 interactions/conversion)")
+        print("     - LOW_CONVERSION users: High value (e.g., 5.0-10.0 interactions/conversion)")
+        print("     - ZERO_CONVERSION users: Very high value = total interactions (all effort, no purchase)")
+
 
     # ------------------------------------------------------------------
     # Scenario 4: Latency / quality degradation
@@ -676,9 +793,12 @@ class TrafficGenerator:
         Run the full demo as outlined in the plan:
 
         1. Normal traffic baseline
-        2. Trigger LLM-focused detection rules (Rules 1-4)
+        2. Trigger LLM-focused detection rules
+           - Prompt injection detection
+           - Interactions-per-conversion (AI chat efficiency)
+           - Quality degradation
         3. Trigger broader error/latency patterns
-        4. Trigger AI predictive alert (Rule 5)
+        4. Trigger AI predictive alert
         """
         print("=== Starting Traffic Generation Demo ===")
 
@@ -687,22 +807,25 @@ class TrafficGenerator:
         self.generate_normal_traffic(duration_seconds=120, delay_between_actions=0.7)
 
         # Phase 2: Trigger LLM detection rules
-        print("\n[Phase 2] Triggering LLM detection rules (Rules 1-4)...")
-        self.trigger_hallucination_scenario(count=30)
+        print("\n[Phase 2] Triggering LLM detection rules...")
         self.trigger_injection_scenario(count=30)
         self.trigger_cost_spike_scenario(conversations=8, messages_per_conversation=6)
+        # Test interactions-per-conversion with cart tracking
+        print("\n[Phase 2b] Testing interactions-per-conversion...")
+        self.trigger_cost_per_conversion_scenario(users=5)
         self.trigger_latency_quality_scenario(concurrent_requests=25, bursts=4)
 
         # Phase 3: Trigger infrastructure / error alerts
         print("\n[Phase 3] Triggering error patterns...")
         self.trigger_error_scenario(count=40)
 
-        # Phase 4: Trigger AI predictive capacity alert (Rule 5)
-        print("\n[Phase 4] Triggering AI predictive capacity alert (Rule 5)...")
+        # Phase 4: Trigger AI predictive capacity alert
+        print("\n[Phase 4] Triggering AI predictive capacity alert...")
         self.trigger_predictive_alert_scenario()
 
         print("\n=== Traffic Generation Complete ===")
         print("Check Datadog for triggered alerts, monitors, and incidents.")
+
 
 
 def parse_args() -> argparse.Namespace:
@@ -719,14 +842,14 @@ def parse_args() -> argparse.Namespace:
         choices=[
             "full",
             "normal",
-            "hallucination",
             "injection",
             "multimodal",  # Multimodal security attack on Try-On Service
             "cost",
+            "cost_per_conversion",  # Interactions-per-conversion test
             "latency_quality",
             "error",
             "quality",
-            "predictive",  # Rule 5: Predictive Capacity Alert
+            "predictive",  # Predictive Capacity Alert
         ],
         default="full",
         help="Which scenario to run (default: full demo).",
@@ -760,14 +883,15 @@ def main():
         generator.run_full_demo()
     elif args.scenario == "normal":
         generator.generate_normal_traffic(duration_seconds=args.duration_seconds)
-    elif args.scenario == "hallucination":
-        generator.trigger_hallucination_scenario()
     elif args.scenario == "injection":
         generator.trigger_injection_scenario()
     elif args.scenario == "multimodal":
         generator.trigger_multimodal_attack_scenario(tryon_url=args.tryon_url)
     elif args.scenario == "cost":
         generator.trigger_cost_spike_scenario()
+    elif args.scenario == "cost_per_conversion":
+        # Interactions-per-conversion test with cart tracking
+        generator.trigger_cost_per_conversion_scenario()
     elif args.scenario == "latency_quality":
         generator.trigger_latency_quality_scenario()
     elif args.scenario == "error":

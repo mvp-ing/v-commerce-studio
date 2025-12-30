@@ -8,8 +8,13 @@ The dashboard provides comprehensive visibility into the LLM-powered e-commerce 
 Dashboard Sections:
 1. Application Health Overview - RED metrics, service status
 2. LLM Observability Panel - token usage, costs, latency
-3. AI Insights Panel - predictions from Observability Insights Service
-4. Detection Rules Status - monitor widgets for all 5 detection rules
+3. Detection Rules Dashboard - dedicated section for all 5 detection rules:
+   - Rule 1: Prompt Injection Detection (security)
+   - Rule 2: Interactions Per Conversion (efficiency)
+   - Rule 3: Response Quality Degradation (UX)
+   - Rule 4: Predictive Capacity Alert (AI prediction)
+   - Rule 5: Multimodal Security Attack (Try-On service)
+4. LLM Services Deep Dive - per-service breakdowns
 
 Usage:
     source .env.datadog
@@ -623,51 +628,80 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
     })
     
     # ============================================
-    # SECTION 3: Detection Rules Status
+    # SECTION 3: Detection Rules - Comprehensive View
     # ============================================
     widgets.append({
         "definition": {
-            "title": "🚨 Detection Rules Status",
+            "title": "🚨 Detection Rules Overview",
             "title_align": "left",
             "type": "group",
-            "background_color": "yellow",
+            "background_color": "vivid_yellow",
             "layout_type": "ordered",
             "widgets": [
-                # Detection Rule Indicators
+                # Top row: Overall Monitor Status
                 {
                     "definition": {
-                        "title": "Hallucination Rate",
-                        "title_size": "16",
-                        "title_align": "left",
-                        "type": "query_value",
-                        "requests": [
-                            {
-                                "response_format": "scalar",
-                                "queries": [
-                                    {
-                                        "data_source": "metrics",
-                                        "name": "query1",
-                                        "query": "avg:llm.recommendation.invalid_product_rate{*}",
-                                        "aggregator": "avg"
-                                    }
-                                ],
-                                "formulas": [{"formula": "query1 * 100"}],
-                                "conditional_formats": [
-                                    {"comparator": ">=", "value": 2, "palette": "white_on_red"},
-                                    {"comparator": ">=", "value": 1, "palette": "white_on_yellow"},
-                                    {"comparator": "<", "value": 1, "palette": "white_on_green"}
-                                ]
-                            }
-                        ],
-                        "precision": 2,
-                        "custom_unit": "%",
-                        "timeseries_background": {"type": "area"}
+                        "type": "note",
+                        "content": "## Detection Rules Dashboard\n\nReal-time monitoring of all 5 AI/LLM detection rules. Each rule tracks specific anomalies to protect your AI-powered e-commerce platform.",
+                        "background_color": "transparent",
+                        "font_size": "14",
+                        "text_align": "left",
+                        "vertical_align": "center",
+                        "show_tick": False,
+                        "has_padding": True
                     },
-                    "layout": {"x": 0, "y": 0, "width": 3, "height": 2}
+                    "layout": {"x": 0, "y": 0, "width": 8, "height": 1}
                 },
                 {
                     "definition": {
-                        "title": "Injection Score (Max)",
+                        "title": "All Detection Rules Status",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "type": "manage_status",
+                        "display_format": "countsAndList",
+                        "color_preference": "text",
+                        "hide_zero_counts": False,
+                        "show_last_triggered": True,
+                        "query": "tag:(detection_rule:*)",
+                        "sort": "status,asc",
+                        "count": 5,
+                        "start": 0,
+                        "summary_type": "monitors"
+                    },
+                    "layout": {"x": 8, "y": 0, "width": 4, "height": 2}
+                }
+            ]
+        },
+        "layout": {"x": 0, "y": 18, "width": 12, "height": 3}
+    })
+    
+    # --------------------------------------------
+    # Rule 1: Prompt Injection Detection
+    # --------------------------------------------
+    widgets.append({
+        "definition": {
+            "title": "🔴 Rule 1: Prompt Injection Detection",
+            "title_align": "left",
+            "type": "group",
+            "background_color": "red",
+            "layout_type": "ordered",
+            "widgets": [
+                {
+                    "definition": {
+                        "type": "note",
+                        "content": "**Detects adversarial prompts** attempting to manipulate AI services through jailbreaks, system prompt extraction, or SQL injection patterns.",
+                        "background_color": "transparent",
+                        "font_size": "12",
+                        "text_align": "left",
+                        "vertical_align": "center",
+                        "show_tick": False,
+                        "has_padding": True
+                    },
+                    "layout": {"x": 0, "y": 0, "width": 4, "height": 1}
+                },
+                {
+                    "definition": {
+                        "title": "Max Injection Score",
                         "title_size": "16",
                         "title_align": "left",
                         "type": "query_value",
@@ -693,11 +727,11 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                         "precision": 2,
                         "timeseries_background": {"type": "area"}
                     },
-                    "layout": {"x": 3, "y": 0, "width": 3, "height": 2}
+                    "layout": {"x": 4, "y": 0, "width": 2, "height": 2}
                 },
                 {
                     "definition": {
-                        "title": "Error Prediction",
+                        "title": "LLM Requests Analyzed",
                         "title_size": "16",
                         "title_align": "left",
                         "type": "query_value",
@@ -708,91 +742,46 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                                     {
                                         "data_source": "metrics",
                                         "name": "query1",
-                                        "query": "avg:llm.prediction.error_probability{*}",
-                                        "aggregator": "avg"
+                                        "query": "sum:llm.request.count{*}.as_count()",
+                                        "aggregator": "sum"
                                     }
                                 ],
-                                "formulas": [{"formula": "query1 * 100"}],
-                                "conditional_formats": [
-                                    {"comparator": ">=", "value": 80, "palette": "white_on_red"},
-                                    {"comparator": ">=", "value": 60, "palette": "white_on_yellow"},
-                                    {"comparator": "<", "value": 60, "palette": "white_on_green"}
-                                ]
+                                "formulas": [{"formula": "query1"}]
                             }
                         ],
                         "precision": 0,
-                        "custom_unit": "%",
-                        "timeseries_background": {"type": "area"}
+                        "autoscale": True,
+                        "timeseries_background": {"type": "bars"}
                     },
-                    "layout": {"x": 6, "y": 0, "width": 3, "height": 2}
+                    "layout": {"x": 6, "y": 0, "width": 2, "height": 2}
                 },
                 {
                     "definition": {
-                        "title": "Monitor Status",
-                        "title_size": "16",
-                        "title_align": "left",
-                        "type": "manage_status",
-                        "display_format": "countsAndList",
-                        "color_preference": "text",
-                        "hide_zero_counts": False,
-                        "show_last_triggered": True,
-                        "query": "tag:(detection_rule:*)",
-                        "sort": "status,asc",
-                        "count": 10,
-                        "start": 0,
-                        "summary_type": "monitors"
-                    },
-                    "layout": {"x": 9, "y": 0, "width": 3, "height": 2}
-                },
-                # Detection Metrics Charts
-                {
-                    "definition": {
-                        "title": "Hallucination Rate Over Time",
+                        "title": "Injection Score Over Time",
                         "title_size": "16",
                         "title_align": "left",
                         "show_legend": True,
                         "type": "timeseries",
                         "requests": [
                             {
-                                "formulas": [{"formula": "query1"}],
-                                "queries": [
-                                    {
-                                        "data_source": "metrics",
-                                        "name": "query1",
-                                        "query": "avg:llm.recommendation.invalid_product_rate{*}"
-                                    }
+                                "formulas": [
+                                    {"formula": "query1", "alias": "Max Score"},
+                                    {"formula": "query2", "alias": "Avg Score"}
                                 ],
-                                "response_format": "timeseries",
-                                "style": {"palette": "orange", "line_type": "solid", "line_width": "normal"},
-                                "display_type": "line"
-                            }
-                        ],
-                        "yaxis": {"min": "0", "max": "0.1"},
-                        "markers": [
-                            {"value": "y = 0.02", "display_type": "error dashed", "label": "Threshold (2%)"}
-                        ]
-                    },
-                    "layout": {"x": 0, "y": 2, "width": 6, "height": 3}
-                },
-                {
-                    "definition": {
-                        "title": "Prompt Injection Attempt Score",
-                        "title_size": "16",
-                        "title_align": "left",
-                        "show_legend": True,
-                        "type": "timeseries",
-                        "requests": [
-                            {
-                                "formulas": [{"formula": "query1"}],
                                 "queries": [
                                     {
                                         "data_source": "metrics",
                                         "name": "query1",
                                         "query": "max:llm.security.injection_attempt_score{*}"
+                                    },
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query2",
+                                        "query": "avg:llm.security.injection_attempt_score{*}"
                                     }
                                 ],
                                 "response_format": "timeseries",
-                                "style": {"palette": "red", "line_type": "solid", "line_width": "normal"},
+                                "style": {"palette": "warm", "line_type": "solid", "line_width": "normal"},
                                 "display_type": "line"
                             }
                         ],
@@ -802,12 +791,40 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                             {"value": "y = 0.5", "display_type": "warning dashed", "label": "Warning (0.5)"}
                         ]
                     },
-                    "layout": {"x": 6, "y": 2, "width": 6, "height": 3}
-                },
-                # Try-On Service: Multimodal Security Attacks
+                    "layout": {"x": 8, "y": 0, "width": 4, "height": 2}
+                }
+            ]
+        },
+        "layout": {"x": 0, "y": 21, "width": 12, "height": 3}
+    })
+    
+    # --------------------------------------------
+    # Rule 2: Interactions Per Conversion
+    # --------------------------------------------
+    widgets.append({
+        "definition": {
+            "title": "💬 Rule 2: AI Chat Efficiency (Interactions Per Conversion)",
+            "title_align": "left",
+            "type": "group",
+            "background_color": "vivid_purple",
+            "layout_type": "ordered",
+            "widgets": [
                 {
                     "definition": {
-                        "title": "🖼️ Try-On Service: Security Attacks",
+                        "type": "note",
+                        "content": "**Measures AI chat efficiency** - how many LLM interactions it takes for a user to add a product to cart. Lower = more efficient.",
+                        "background_color": "transparent",
+                        "font_size": "12",
+                        "text_align": "left",
+                        "vertical_align": "center",
+                        "show_tick": False,
+                        "has_padding": True
+                    },
+                    "layout": {"x": 0, "y": 0, "width": 4, "height": 1}
+                },
+                {
+                    "definition": {
+                        "title": "Avg Interactions/Conversion",
                         "title_size": "16",
                         "title_align": "left",
                         "type": "query_value",
@@ -818,101 +835,238 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                                     {
                                         "data_source": "metrics",
                                         "name": "query1",
-                                        "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
-                                        "aggregator": "sum"
-                                    },
-                                    {
-                                        "data_source": "metrics",
-                                        "name": "query2",
-                                        "query": "sum:tryon.security.invalid_image{service:tryonservice}",
-                                        "aggregator": "sum"
+                                        "query": "avg:llm.cost_per_conversion{*}",
+                                        "aggregator": "avg"
                                     }
                                 ],
-                                "formulas": [{"formula": "query1 + query2"}],
+                                "formulas": [{"formula": "query1"}],
                                 "conditional_formats": [
                                     {"comparator": ">=", "value": 10, "palette": "white_on_red"},
-                                    {"comparator": ">=", "value": 5, "palette": "white_on_yellow"},
-                                    {"comparator": "<", "value": 5, "palette": "white_on_green"}
+                                    {"comparator": ">=", "value": 7, "palette": "white_on_yellow"},
+                                    {"comparator": "<", "value": 7, "palette": "white_on_green"}
                                 ]
                             }
                         ],
-                        "precision": 0,
-                        "custom_unit": "attacks",
+                        "precision": 1,
+                        "custom_unit": "chats",
                         "timeseries_background": {"type": "area"}
                     },
-                    "layout": {"x": 0, "y": 5, "width": 6, "height": 3}
+                    "layout": {"x": 4, "y": 0, "width": 2, "height": 2}
                 },
                 {
                     "definition": {
-                        "title": "🖼️ Try-On Service: Multimodal Security Attacks Over Time",
+                        "title": "Total LLM Interactions",
                         "title_size": "16",
                         "title_align": "left",
-                        "show_legend": True,
-                        "legend_layout": "auto",
-                        "type": "timeseries",
+                        "type": "query_value",
                         "requests": [
                             {
-                                "formulas": [
-                                    {"formula": "query1", "alias": "Decompression Bombs"},
-                                    {"formula": "query2", "alias": "Invalid Images"}
-                                ],
+                                "response_format": "scalar",
                                 "queries": [
                                     {
                                         "data_source": "metrics",
                                         "name": "query1",
-                                        "query": "sum:tryon.security.decompression_bomb{service:tryonservice}"
-                                    },
+                                        "query": "sum:llm.interaction_count{*}",
+                                        "aggregator": "sum"
+                                    }
+                                ],
+                                "formulas": [{"formula": "query1"}]
+                            }
+                        ],
+                        "precision": 0,
+                        "autoscale": True,
+                        "timeseries_background": {"type": "bars"}
+                    },
+                    "layout": {"x": 6, "y": 0, "width": 2, "height": 2}
+                },
+                {
+                    "definition": {
+                        "title": "Interactions Per Conversion Over Time",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "show_legend": True,
+                        "type": "timeseries",
+                        "requests": [
+                            {
+                                "formulas": [{"formula": "query1"}],
+                                "queries": [
                                     {
                                         "data_source": "metrics",
-                                        "name": "query2",
-                                        "query": "sum:tryon.security.invalid_image{service:tryonservice}"
+                                        "name": "query1",
+                                        "query": "avg:llm.cost_per_conversion{*}"
                                     }
                                 ],
                                 "response_format": "timeseries",
-                                "style": {"palette": "warm", "line_type": "solid", "line_width": "normal"},
-                                "display_type": "bars"
+                                "style": {"palette": "purple", "line_type": "solid", "line_width": "normal"},
+                                "display_type": "line"
                             }
                         ],
+                        "yaxis": {"min": "0", "max": "20"},
                         "markers": [
-                            {"value": "y = 3", "display_type": "error dashed", "label": "Critical Threshold (3 attacks/5min)"}
+                            {"value": "y = 10", "display_type": "error dashed", "label": "Critical (10+ chats)"},
+                            {"value": "y = 7", "display_type": "warning dashed", "label": "Warning (7+ chats)"}
                         ]
                     },
-                    "layout": {"x": 6, "y": 5, "width": 6, "height": 3}
+                    "layout": {"x": 8, "y": 0, "width": 4, "height": 2}
                 }
             ]
         },
-        "layout": {"x": 0, "y": 18, "width": 12, "height": 9}
+        "layout": {"x": 0, "y": 24, "width": 12, "height": 3}
     })
     
-    # ============================================
-    # SECTION 4: AI Insights Panel
-    # ============================================
+    # --------------------------------------------
+    # Rule 3: Response Quality Degradation
+    # --------------------------------------------
     widgets.append({
         "definition": {
-            "title": "🔮 AI-Powered Insights",
+            "title": "⚠️ Rule 3: Response Quality Degradation",
             "title_align": "left",
             "type": "group",
-            "background_color": "orange",
+            "background_color": "vivid_orange",
             "layout_type": "ordered",
             "widgets": [
                 {
                     "definition": {
                         "type": "note",
-                        "content": "**AI Observing AI** 🧠\n\nThe Observability Insights Service uses Gemini to predict errors before they happen and suggest cost optimizations.",
+                        "content": "**Monitors LLM response quality** - tracks coherence, relevance, and helpfulness. Low scores indicate degraded user experience.",
                         "background_color": "transparent",
-                        "font_size": "14",
+                        "font_size": "12",
                         "text_align": "left",
                         "vertical_align": "center",
                         "show_tick": False,
-                        "tick_pos": "50%",
-                        "tick_edge": "left",
                         "has_padding": True
                     },
-                    "layout": {"x": 0, "y": 0, "width": 4, "height": 2}
+                    "layout": {"x": 0, "y": 0, "width": 4, "height": 1}
                 },
                 {
                     "definition": {
-                        "title": "Error Risk Level",
+                        "title": "Avg Quality Score",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "type": "query_value",
+                        "requests": [
+                            {
+                                "response_format": "scalar",
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "avg:llm.response.quality_score{*}",
+                                        "aggregator": "avg"
+                                    }
+                                ],
+                                "formulas": [{"formula": "query1"}],
+                                "conditional_formats": [
+                                    {"comparator": "<", "value": 0.6, "palette": "white_on_red"},
+                                    {"comparator": "<", "value": 0.7, "palette": "white_on_yellow"},
+                                    {"comparator": ">=", "value": 0.7, "palette": "white_on_green"}
+                                ]
+                            }
+                        ],
+                        "precision": 2,
+                        "timeseries_background": {"type": "area"}
+                    },
+                    "layout": {"x": 4, "y": 0, "width": 2, "height": 2}
+                },
+                {
+                    "definition": {
+                        "title": "Min Quality Score",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "type": "query_value",
+                        "requests": [
+                            {
+                                "response_format": "scalar",
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "min:llm.response.quality_score{*}",
+                                        "aggregator": "min"
+                                    }
+                                ],
+                                "formulas": [{"formula": "query1"}],
+                                "conditional_formats": [
+                                    {"comparator": "<", "value": 0.5, "palette": "white_on_red"},
+                                    {"comparator": "<", "value": 0.6, "palette": "white_on_yellow"},
+                                    {"comparator": ">=", "value": 0.6, "palette": "white_on_green"}
+                                ]
+                            }
+                        ],
+                        "precision": 2,
+                        "timeseries_background": {"type": "area"}
+                    },
+                    "layout": {"x": 6, "y": 0, "width": 2, "height": 2}
+                },
+                {
+                    "definition": {
+                        "title": "Quality Score Over Time",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "show_legend": True,
+                        "type": "timeseries",
+                        "requests": [
+                            {
+                                "formulas": [
+                                    {"formula": "query1", "alias": "Avg Quality"},
+                                    {"formula": "query2", "alias": "Min Quality"}
+                                ],
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "avg:llm.response.quality_score{*}"
+                                    },
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query2",
+                                        "query": "min:llm.response.quality_score{*}"
+                                    }
+                                ],
+                                "response_format": "timeseries",
+                                "style": {"palette": "cool", "line_type": "solid", "line_width": "normal"},
+                                "display_type": "line"
+                            }
+                        ],
+                        "yaxis": {"min": "0", "max": "1"},
+                        "markers": [
+                            {"value": "y = 0.6", "display_type": "error dashed", "label": "Critical Threshold (0.6)"}
+                        ]
+                    },
+                    "layout": {"x": 8, "y": 0, "width": 4, "height": 2}
+                }
+            ]
+        },
+        "layout": {"x": 0, "y": 27, "width": 12, "height": 3}
+    })
+    
+    # --------------------------------------------
+    # Rule 4: Predictive Capacity Alert
+    # --------------------------------------------
+    widgets.append({
+        "definition": {
+            "title": "🔮 Rule 4: Predictive Capacity Alert",
+            "title_align": "left",
+            "type": "group",
+            "background_color": "vivid_blue",
+            "layout_type": "ordered",
+            "widgets": [
+                {
+                    "definition": {
+                        "type": "note",
+                        "content": "**AI-powered failure prediction** - Gemini analyzes metrics to predict errors before they happen. High probability = imminent issues.",
+                        "background_color": "transparent",
+                        "font_size": "12",
+                        "text_align": "left",
+                        "vertical_align": "center",
+                        "show_tick": False,
+                        "has_padding": True
+                    },
+                    "layout": {"x": 0, "y": 0, "width": 4, "height": 1}
+                },
+                {
+                    "definition": {
+                        "title": "Error Probability",
                         "title_size": "16",
                         "title_align": "left",
                         "type": "query_value",
@@ -985,24 +1139,189 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                                     }
                                 ],
                                 "response_format": "timeseries",
-                                "style": {"palette": "orange", "line_type": "solid", "line_width": "thick"},
+                                "style": {"palette": "classic", "line_type": "solid", "line_width": "thick"},
                                 "display_type": "line"
                             }
                         ],
                         "yaxis": {"min": "0", "max": "1"},
                         "markers": [
-                            {"value": "y = 0.8", "display_type": "error dashed", "label": "Alert Threshold"}
+                            {"value": "y = 0.8", "display_type": "error dashed", "label": "Alert Threshold (80%)"}
                         ]
                     },
                     "layout": {"x": 8, "y": 0, "width": 4, "height": 2}
                 }
             ]
         },
-        "layout": {"x": 0, "y": 24, "width": 12, "height": 3}
+        "layout": {"x": 0, "y": 30, "width": 12, "height": 3}
+    })
+    
+    # --------------------------------------------
+    # Rule 5: Multimodal Security Attack Detection
+    # --------------------------------------------
+    widgets.append({
+        "definition": {
+            "title": "🖼️ Rule 5: Multimodal Security Attack Detection (Try-On Service)",
+            "title_align": "left",
+            "type": "group",
+            "background_color": "vivid_pink",
+            "layout_type": "ordered",
+            "widgets": [
+                {
+                    "definition": {
+                        "type": "note",
+                        "content": "**Detects image-based attacks** on the Try-On service including decompression bombs (memory exhaustion) and malicious/invalid image files.",
+                        "background_color": "transparent",
+                        "font_size": "12",
+                        "text_align": "left",
+                        "vertical_align": "center",
+                        "show_tick": False,
+                        "has_padding": True
+                    },
+                    "layout": {"x": 0, "y": 0, "width": 4, "height": 1}
+                },
+                {
+                    "definition": {
+                        "title": "Total Attacks",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "type": "query_value",
+                        "requests": [
+                            {
+                                "response_format": "scalar",
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
+                                        "aggregator": "sum"
+                                    },
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query2",
+                                        "query": "sum:tryon.security.invalid_image{service:tryonservice}",
+                                        "aggregator": "sum"
+                                    }
+                                ],
+                                "formulas": [{"formula": "query1 + query2"}],
+                                "conditional_formats": [
+                                    {"comparator": ">=", "value": 10, "palette": "white_on_red"},
+                                    {"comparator": ">=", "value": 5, "palette": "white_on_yellow"},
+                                    {"comparator": "<", "value": 5, "palette": "white_on_green"}
+                                ]
+                            }
+                        ],
+                        "precision": 0,
+                        "custom_unit": "attacks",
+                        "timeseries_background": {"type": "bars"}
+                    },
+                    "layout": {"x": 4, "y": 0, "width": 2, "height": 2}
+                },
+                {
+                    "definition": {
+                        "title": "Decompression Bombs",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "type": "query_value",
+                        "requests": [
+                            {
+                                "response_format": "scalar",
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
+                                        "aggregator": "sum"
+                                    }
+                                ],
+                                "formulas": [{"formula": "query1"}],
+                                "conditional_formats": [
+                                    {"comparator": ">=", "value": 3, "palette": "white_on_red"},
+                                    {"comparator": ">=", "value": 1, "palette": "white_on_yellow"},
+                                    {"comparator": "<", "value": 1, "palette": "white_on_green"}
+                                ]
+                            }
+                        ],
+                        "precision": 0,
+                        "custom_unit": "💣",
+                        "timeseries_background": {"type": "area"}
+                    },
+                    "layout": {"x": 6, "y": 0, "width": 1, "height": 2}
+                },
+                {
+                    "definition": {
+                        "title": "Invalid Images",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "type": "query_value",
+                        "requests": [
+                            {
+                                "response_format": "scalar",
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "sum:tryon.security.invalid_image{service:tryonservice}",
+                                        "aggregator": "sum"
+                                    }
+                                ],
+                                "formulas": [{"formula": "query1"}],
+                                "conditional_formats": [
+                                    {"comparator": ">=", "value": 5, "palette": "white_on_red"},
+                                    {"comparator": ">=", "value": 2, "palette": "white_on_yellow"},
+                                    {"comparator": "<", "value": 2, "palette": "white_on_green"}
+                                ]
+                            }
+                        ],
+                        "precision": 0,
+                        "custom_unit": "🚫",
+                        "timeseries_background": {"type": "area"}
+                    },
+                    "layout": {"x": 7, "y": 0, "width": 1, "height": 2}
+                },
+                {
+                    "definition": {
+                        "title": "Attack Types Over Time",
+                        "title_size": "16",
+                        "title_align": "left",
+                        "show_legend": True,
+                        "legend_layout": "auto",
+                        "type": "timeseries",
+                        "requests": [
+                            {
+                                "formulas": [
+                                    {"formula": "query1", "alias": "Decompression Bombs 💣"},
+                                    {"formula": "query2", "alias": "Invalid Images 🚫"}
+                                ],
+                                "queries": [
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query1",
+                                        "query": "sum:tryon.security.decompression_bomb{service:tryonservice}"
+                                    },
+                                    {
+                                        "data_source": "metrics",
+                                        "name": "query2",
+                                        "query": "sum:tryon.security.invalid_image{service:tryonservice}"
+                                    }
+                                ],
+                                "response_format": "timeseries",
+                                "style": {"palette": "warm", "line_type": "solid", "line_width": "normal"},
+                                "display_type": "bars"
+                            }
+                        ],
+                        "markers": [
+                            {"value": "y = 5", "display_type": "error dashed", "label": "Critical (5+ attacks/5min)"}
+                        ]
+                    },
+                    "layout": {"x": 8, "y": 0, "width": 4, "height": 2}
+                }
+            ]
+        },
+        "layout": {"x": 0, "y": 33, "width": 12, "height": 3}
     })
     
     # ============================================
-    # SECTION 5: LLM Services Deep Dive
+    # SECTION 4: LLM Services Deep Dive
     # ============================================
     widgets.append({
         "definition": {
@@ -1026,12 +1345,12 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                                     {
                                         "data_source": "metrics",
                                         "name": "query1",
-                                        "query": "sum:trace.grpc.request.hits{service:chatbotservice}.as_rate()"
+                                        "query": "sum:llm.request.count{service:chatbotservice}.as_count()"
                                     }
                                 ],
                                 "response_format": "timeseries",
                                 "style": {"palette": "dog_classic", "line_type": "solid", "line_width": "normal"},
-                                "display_type": "line"
+                                "display_type": "bars"
                             }
                         ]
                     },
@@ -1051,12 +1370,12 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                                     {
                                         "data_source": "metrics",
                                         "name": "query1",
-                                        "query": "sum:trace.grpc.request.hits{service:peau-agent OR service:peau_agent}.as_rate()"
+                                        "query": "sum:llm.request.count{service:peau-agent OR service:peau_agent OR service:beauagent}.as_count()"
                                     }
                                 ],
                                 "response_format": "timeseries",
                                 "style": {"palette": "cool", "line_type": "solid", "line_width": "normal"},
-                                "display_type": "line"
+                                "display_type": "bars"
                             }
                         ]
                     },
@@ -1064,7 +1383,7 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                 },
                 {
                     "definition": {
-                        "title": "Shopping Assistant Requests",
+                        "title": "Try-On Service Requests",
                         "title_size": "16",
                         "title_align": "left",
                         "show_legend": True,
@@ -1076,12 +1395,12 @@ def get_dashboard_widgets() -> List[Dict[str, Any]]:
                                     {
                                         "data_source": "metrics",
                                         "name": "query1",
-                                        "query": "sum:trace.grpc.request.hits{service:shoppingassistantservice}.as_rate()"
+                                        "query": "sum:tryon.request.count{service:tryonservice}.as_count()"
                                     }
                                 ],
                                 "response_format": "timeseries",
                                 "style": {"palette": "purple", "line_type": "solid", "line_width": "normal"},
-                                "display_type": "line"
+                                "display_type": "bars"
                             }
                         ]
                     },

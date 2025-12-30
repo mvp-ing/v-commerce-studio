@@ -791,69 +791,91 @@
     },
     {
       "definition": {
-        "title": "\ud83d\udea8 Detection Rules Status",
+        "title": "\ud83d\udea8 Detection Rules Overview",
         "title_align": "left",
         "type": "group",
-        "background_color": "yellow",
+        "background_color": "vivid_yellow",
         "layout_type": "ordered",
         "widgets": [
           {
             "definition": {
-              "title": "Hallucination Rate",
-              "title_size": "16",
-              "title_align": "left",
-              "type": "query_value",
-              "requests": [
-                {
-                  "response_format": "scalar",
-                  "queries": [
-                    {
-                      "data_source": "metrics",
-                      "name": "query1",
-                      "query": "avg:llm.recommendation.invalid_product_rate{*}",
-                      "aggregator": "avg"
-                    }
-                  ],
-                  "formulas": [
-                    {
-                      "formula": "query1 * 100"
-                    }
-                  ],
-                  "conditional_formats": [
-                    {
-                      "comparator": ">=",
-                      "value": 2,
-                      "palette": "white_on_red"
-                    },
-                    {
-                      "comparator": ">=",
-                      "value": 1,
-                      "palette": "white_on_yellow"
-                    },
-                    {
-                      "comparator": "<",
-                      "value": 1,
-                      "palette": "white_on_green"
-                    }
-                  ]
-                }
-              ],
-              "precision": 2,
-              "custom_unit": "%",
-              "timeseries_background": {
-                "type": "area"
-              }
+              "type": "note",
+              "content": "## Detection Rules Dashboard\n\nReal-time monitoring of all 5 AI/LLM detection rules. Each rule tracks specific anomalies to protect your AI-powered e-commerce platform.",
+              "background_color": "transparent",
+              "font_size": "14",
+              "text_align": "left",
+              "vertical_align": "center",
+              "show_tick": false,
+              "has_padding": true
             },
             "layout": {
               "x": 0,
               "y": 0,
-              "width": 3,
-              "height": 2
+              "width": 8,
+              "height": 1
             }
           },
           {
             "definition": {
-              "title": "Injection Score (Max)",
+              "title": "All Detection Rules Status",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "manage_status",
+              "display_format": "countsAndList",
+              "color_preference": "text",
+              "hide_zero_counts": false,
+              "show_last_triggered": true,
+              "query": "tag:(detection_rule:*)",
+              "sort": "status,asc",
+              "count": 5,
+              "start": 0,
+              "summary_type": "monitors"
+            },
+            "layout": {
+              "x": 8,
+              "y": 0,
+              "width": 4,
+              "height": 2
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 18,
+        "width": 12,
+        "height": 3
+      }
+    },
+    {
+      "definition": {
+        "title": "\ud83d\udd34 Rule 1: Prompt Injection Detection",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "red",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "note",
+              "content": "**Detects adversarial prompts** attempting to manipulate AI services through jailbreaks, system prompt extraction, or SQL injection patterns.",
+              "background_color": "transparent",
+              "font_size": "12",
+              "text_align": "left",
+              "vertical_align": "center",
+              "show_tick": false,
+              "has_padding": true
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 4,
+              "height": 1
+            }
+          },
+          {
+            "definition": {
+              "title": "Max Injection Score",
               "title_size": "16",
               "title_align": "left",
               "type": "query_value",
@@ -898,15 +920,15 @@
               }
             },
             "layout": {
-              "x": 3,
+              "x": 4,
               "y": 0,
-              "width": 3,
+              "width": 2,
               "height": 2
             }
           },
           {
             "definition": {
-              "title": "Error Prediction",
+              "title": "LLM Requests Analyzed",
               "title_size": "16",
               "title_align": "left",
               "type": "query_value",
@@ -917,73 +939,33 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "avg:llm.prediction.error_probability{*}",
-                      "aggregator": "avg"
+                      "query": "sum:llm.request.count{*}.as_count()",
+                      "aggregator": "sum"
                     }
                   ],
                   "formulas": [
                     {
-                      "formula": "query1 * 100"
-                    }
-                  ],
-                  "conditional_formats": [
-                    {
-                      "comparator": ">=",
-                      "value": 80,
-                      "palette": "white_on_red"
-                    },
-                    {
-                      "comparator": ">=",
-                      "value": 60,
-                      "palette": "white_on_yellow"
-                    },
-                    {
-                      "comparator": "<",
-                      "value": 60,
-                      "palette": "white_on_green"
+                      "formula": "query1"
                     }
                   ]
                 }
               ],
               "precision": 0,
-              "custom_unit": "%",
+              "autoscale": true,
               "timeseries_background": {
-                "type": "area"
+                "type": "bars"
               }
             },
             "layout": {
               "x": 6,
               "y": 0,
-              "width": 3,
+              "width": 2,
               "height": 2
             }
           },
           {
             "definition": {
-              "title": "Monitor Status",
-              "title_size": "16",
-              "title_align": "left",
-              "type": "manage_status",
-              "display_format": "countsAndList",
-              "color_preference": "text",
-              "hide_zero_counts": false,
-              "show_last_triggered": true,
-              "query": "tag:(detection_rule:*)",
-              "sort": "status,asc",
-              "count": 10,
-              "start": 0,
-              "summary_type": "monitors"
-            },
-            "layout": {
-              "x": 9,
-              "y": 0,
-              "width": 3,
-              "height": 2
-            }
-          },
-          {
-            "definition": {
-              "title": "Hallucination Rate Over Time",
+              "title": "Injection Score Over Time",
               "title_size": "16",
               "title_align": "left",
               "show_legend": true,
@@ -992,56 +974,12 @@
                 {
                   "formulas": [
                     {
-                      "formula": "query1"
-                    }
-                  ],
-                  "queries": [
+                      "formula": "query1",
+                      "alias": "Max Score"
+                    },
                     {
-                      "data_source": "metrics",
-                      "name": "query1",
-                      "query": "avg:llm.recommendation.invalid_product_rate{*}"
-                    }
-                  ],
-                  "response_format": "timeseries",
-                  "style": {
-                    "palette": "orange",
-                    "line_type": "solid",
-                    "line_width": "normal"
-                  },
-                  "display_type": "line"
-                }
-              ],
-              "yaxis": {
-                "min": "0",
-                "max": "0.1"
-              },
-              "markers": [
-                {
-                  "value": "y = 0.02",
-                  "display_type": "error dashed",
-                  "label": "Threshold (2%)"
-                }
-              ]
-            },
-            "layout": {
-              "x": 0,
-              "y": 2,
-              "width": 6,
-              "height": 3
-            }
-          },
-          {
-            "definition": {
-              "title": "Prompt Injection Attempt Score",
-              "title_size": "16",
-              "title_align": "left",
-              "show_legend": true,
-              "type": "timeseries",
-              "requests": [
-                {
-                  "formulas": [
-                    {
-                      "formula": "query1"
+                      "formula": "query2",
+                      "alias": "Avg Score"
                     }
                   ],
                   "queries": [
@@ -1049,11 +987,16 @@
                       "data_source": "metrics",
                       "name": "query1",
                       "query": "max:llm.security.injection_attempt_score{*}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "avg:llm.security.injection_attempt_score{*}"
                     }
                   ],
                   "response_format": "timeseries",
                   "style": {
-                    "palette": "red",
+                    "palette": "warm",
                     "line_type": "solid",
                     "line_width": "normal"
                   },
@@ -1078,15 +1021,50 @@
               ]
             },
             "layout": {
-              "x": 6,
-              "y": 2,
-              "width": 6,
-              "height": 3
+              "x": 8,
+              "y": 0,
+              "width": 4,
+              "height": 2
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 21,
+        "width": 12,
+        "height": 3
+      }
+    },
+    {
+      "definition": {
+        "title": "\ud83d\udcac Rule 2: AI Chat Efficiency (Interactions Per Conversion)",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "vivid_purple",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "note",
+              "content": "**Measures AI chat efficiency** - how many LLM interactions it takes for a user to add a product to cart. Lower = more efficient.",
+              "background_color": "transparent",
+              "font_size": "12",
+              "text_align": "left",
+              "vertical_align": "center",
+              "show_tick": false,
+              "has_padding": true
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 4,
+              "height": 1
             }
           },
           {
             "definition": {
-              "title": "\ud83d\uddbc\ufe0f Try-On Service: Security Attacks",
+              "title": "Avg Interactions/Conversion",
               "title_size": "16",
               "title_align": "left",
               "type": "query_value",
@@ -1097,19 +1075,13 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
-                      "aggregator": "sum"
-                    },
-                    {
-                      "data_source": "metrics",
-                      "name": "query2",
-                      "query": "sum:tryon.security.invalid_image{service:tryonservice}",
-                      "aggregator": "sum"
+                      "query": "avg:llm.cost_per_conversion{*}",
+                      "aggregator": "avg"
                     }
                   ],
                   "formulas": [
                     {
-                      "formula": "query1 + query2"
+                      "formula": "query1"
                     }
                   ],
                   "conditional_formats": [
@@ -1120,126 +1092,359 @@
                     },
                     {
                       "comparator": ">=",
-                      "value": 5,
+                      "value": 7,
                       "palette": "white_on_yellow"
                     },
                     {
                       "comparator": "<",
-                      "value": 5,
+                      "value": 7,
                       "palette": "white_on_green"
                     }
                   ]
                 }
               ],
-              "precision": 0,
-              "custom_unit": "attacks",
+              "precision": 1,
+              "custom_unit": "chats",
               "timeseries_background": {
                 "type": "area"
               }
             },
             "layout": {
-              "x": 0,
-              "y": 5,
-              "width": 6,
-              "height": 3
+              "x": 4,
+              "y": 0,
+              "width": 2,
+              "height": 2
             }
           },
           {
             "definition": {
-              "title": "\ud83d\uddbc\ufe0f Try-On Service: Multimodal Security Attacks Over Time",
+              "title": "Total LLM Interactions",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:llm.interaction_count{*}",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ]
+                }
+              ],
+              "precision": 0,
+              "autoscale": true,
+              "timeseries_background": {
+                "type": "bars"
+              }
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 2,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "title": "Interactions Per Conversion Over Time",
               "title_size": "16",
               "title_align": "left",
               "show_legend": true,
-              "legend_layout": "auto",
               "type": "timeseries",
               "requests": [
                 {
                   "formulas": [
                     {
-                      "formula": "query1",
-                      "alias": "Decompression Bombs"
-                    },
-                    {
-                      "formula": "query2",
-                      "alias": "Invalid Images"
+                      "formula": "query1"
                     }
                   ],
                   "queries": [
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}"
-                    },
-                    {
-                      "data_source": "metrics",
-                      "name": "query2",
-                      "query": "sum:tryon.security.invalid_image{service:tryonservice}"
+                      "query": "avg:llm.cost_per_conversion{*}"
                     }
                   ],
                   "response_format": "timeseries",
                   "style": {
-                    "palette": "warm",
+                    "palette": "purple",
                     "line_type": "solid",
                     "line_width": "normal"
                   },
-                  "display_type": "bars"
+                  "display_type": "line"
                 }
               ],
+              "yaxis": {
+                "min": "0",
+                "max": "20"
+              },
               "markers": [
                 {
-                  "value": "y = 3",
+                  "value": "y = 10",
                   "display_type": "error dashed",
-                  "label": "Critical Threshold (3 attacks/5min)"
+                  "label": "Critical (10+ chats)"
+                },
+                {
+                  "value": "y = 7",
+                  "display_type": "warning dashed",
+                  "label": "Warning (7+ chats)"
                 }
               ]
             },
             "layout": {
-              "x": 6,
-              "y": 5,
-              "width": 6,
-              "height": 3
+              "x": 8,
+              "y": 0,
+              "width": 4,
+              "height": 2
             }
           }
         ]
       },
       "layout": {
         "x": 0,
-        "y": 18,
+        "y": 24,
         "width": 12,
-        "height": 9
+        "height": 3
       }
     },
     {
       "definition": {
-        "title": "\ud83d\udd2e AI-Powered Insights",
+        "title": "\u26a0\ufe0f Rule 3: Response Quality Degradation",
         "title_align": "left",
         "type": "group",
-        "background_color": "orange",
+        "background_color": "vivid_orange",
         "layout_type": "ordered",
         "widgets": [
           {
             "definition": {
               "type": "note",
-              "content": "**AI Observing AI** \ud83e\udde0\n\nThe Observability Insights Service uses Gemini to predict errors before they happen and suggest cost optimizations.",
+              "content": "**Monitors LLM response quality** - tracks coherence, relevance, and helpfulness. Low scores indicate degraded user experience.",
               "background_color": "transparent",
-              "font_size": "14",
+              "font_size": "12",
               "text_align": "left",
               "vertical_align": "center",
               "show_tick": false,
-              "tick_pos": "50%",
-              "tick_edge": "left",
               "has_padding": true
             },
             "layout": {
               "x": 0,
               "y": 0,
               "width": 4,
+              "height": 1
+            }
+          },
+          {
+            "definition": {
+              "title": "Avg Quality Score",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:llm.response.quality_score{*}",
+                      "aggregator": "avg"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "conditional_formats": [
+                    {
+                      "comparator": "<",
+                      "value": 0.6,
+                      "palette": "white_on_red"
+                    },
+                    {
+                      "comparator": "<",
+                      "value": 0.7,
+                      "palette": "white_on_yellow"
+                    },
+                    {
+                      "comparator": ">=",
+                      "value": 0.7,
+                      "palette": "white_on_green"
+                    }
+                  ]
+                }
+              ],
+              "precision": 2,
+              "timeseries_background": {
+                "type": "area"
+              }
+            },
+            "layout": {
+              "x": 4,
+              "y": 0,
+              "width": 2,
               "height": 2
             }
           },
           {
             "definition": {
-              "title": "Error Risk Level",
+              "title": "Min Quality Score",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "min:llm.response.quality_score{*}",
+                      "aggregator": "min"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "conditional_formats": [
+                    {
+                      "comparator": "<",
+                      "value": 0.5,
+                      "palette": "white_on_red"
+                    },
+                    {
+                      "comparator": "<",
+                      "value": 0.6,
+                      "palette": "white_on_yellow"
+                    },
+                    {
+                      "comparator": ">=",
+                      "value": 0.6,
+                      "palette": "white_on_green"
+                    }
+                  ]
+                }
+              ],
+              "precision": 2,
+              "timeseries_background": {
+                "type": "area"
+              }
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 2,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "title": "Quality Score Over Time",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {
+                      "formula": "query1",
+                      "alias": "Avg Quality"
+                    },
+                    {
+                      "formula": "query2",
+                      "alias": "Min Quality"
+                    }
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "avg:llm.response.quality_score{*}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "min:llm.response.quality_score{*}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {
+                    "palette": "cool",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  },
+                  "display_type": "line"
+                }
+              ],
+              "yaxis": {
+                "min": "0",
+                "max": "1"
+              },
+              "markers": [
+                {
+                  "value": "y = 0.6",
+                  "display_type": "error dashed",
+                  "label": "Critical Threshold (0.6)"
+                }
+              ]
+            },
+            "layout": {
+              "x": 8,
+              "y": 0,
+              "width": 4,
+              "height": 2
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 27,
+        "width": 12,
+        "height": 3
+      }
+    },
+    {
+      "definition": {
+        "title": "\ud83d\udd2e Rule 4: Predictive Capacity Alert",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "vivid_blue",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "note",
+              "content": "**AI-powered failure prediction** - Gemini analyzes metrics to predict errors before they happen. High probability = imminent issues.",
+              "background_color": "transparent",
+              "font_size": "12",
+              "text_align": "left",
+              "vertical_align": "center",
+              "show_tick": false,
+              "has_padding": true
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 4,
+              "height": 1
+            }
+          },
+          {
+            "definition": {
+              "title": "Error Probability",
               "title_size": "16",
               "title_align": "left",
               "type": "query_value",
@@ -1351,7 +1556,7 @@
                   ],
                   "response_format": "timeseries",
                   "style": {
-                    "palette": "orange",
+                    "palette": "classic",
                     "line_type": "solid",
                     "line_width": "thick"
                   },
@@ -1366,7 +1571,7 @@
                 {
                   "value": "y = 0.8",
                   "display_type": "error dashed",
-                  "label": "Alert Threshold"
+                  "label": "Alert Threshold (80%)"
                 }
               ]
             },
@@ -1381,7 +1586,266 @@
       },
       "layout": {
         "x": 0,
-        "y": 24,
+        "y": 30,
+        "width": 12,
+        "height": 3
+      }
+    },
+    {
+      "definition": {
+        "title": "\ud83d\uddbc\ufe0f Rule 5: Multimodal Security Attack Detection (Try-On Service)",
+        "title_align": "left",
+        "type": "group",
+        "background_color": "vivid_pink",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "note",
+              "content": "**Detects image-based attacks** on the Try-On service including decompression bombs (memory exhaustion) and malicious/invalid image files.",
+              "background_color": "transparent",
+              "font_size": "12",
+              "text_align": "left",
+              "vertical_align": "center",
+              "show_tick": false,
+              "has_padding": true
+            },
+            "layout": {
+              "x": 0,
+              "y": 0,
+              "width": 4,
+              "height": 1
+            }
+          },
+          {
+            "definition": {
+              "title": "Total Attacks",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
+                      "aggregator": "sum"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "sum:tryon.security.invalid_image{service:tryonservice}",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1 + query2"
+                    }
+                  ],
+                  "conditional_formats": [
+                    {
+                      "comparator": ">=",
+                      "value": 10,
+                      "palette": "white_on_red"
+                    },
+                    {
+                      "comparator": ">=",
+                      "value": 5,
+                      "palette": "white_on_yellow"
+                    },
+                    {
+                      "comparator": "<",
+                      "value": 5,
+                      "palette": "white_on_green"
+                    }
+                  ]
+                }
+              ],
+              "precision": 0,
+              "custom_unit": "attacks",
+              "timeseries_background": {
+                "type": "bars"
+              }
+            },
+            "layout": {
+              "x": 4,
+              "y": 0,
+              "width": 2,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "title": "Decompression Bombs",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "conditional_formats": [
+                    {
+                      "comparator": ">=",
+                      "value": 3,
+                      "palette": "white_on_red"
+                    },
+                    {
+                      "comparator": ">=",
+                      "value": 1,
+                      "palette": "white_on_yellow"
+                    },
+                    {
+                      "comparator": "<",
+                      "value": 1,
+                      "palette": "white_on_green"
+                    }
+                  ]
+                }
+              ],
+              "precision": 0,
+              "custom_unit": "\ud83d\udca3",
+              "timeseries_background": {
+                "type": "area"
+              }
+            },
+            "layout": {
+              "x": 6,
+              "y": 0,
+              "width": 1,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "title": "Invalid Images",
+              "title_size": "16",
+              "title_align": "left",
+              "type": "query_value",
+              "requests": [
+                {
+                  "response_format": "scalar",
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:tryon.security.invalid_image{service:tryonservice}",
+                      "aggregator": "sum"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "query1"
+                    }
+                  ],
+                  "conditional_formats": [
+                    {
+                      "comparator": ">=",
+                      "value": 5,
+                      "palette": "white_on_red"
+                    },
+                    {
+                      "comparator": ">=",
+                      "value": 2,
+                      "palette": "white_on_yellow"
+                    },
+                    {
+                      "comparator": "<",
+                      "value": 2,
+                      "palette": "white_on_green"
+                    }
+                  ]
+                }
+              ],
+              "precision": 0,
+              "custom_unit": "\ud83d\udeab",
+              "timeseries_background": {
+                "type": "area"
+              }
+            },
+            "layout": {
+              "x": 7,
+              "y": 0,
+              "width": 1,
+              "height": 2
+            }
+          },
+          {
+            "definition": {
+              "title": "Attack Types Over Time",
+              "title_size": "16",
+              "title_align": "left",
+              "show_legend": true,
+              "legend_layout": "auto",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "formulas": [
+                    {
+                      "formula": "query1",
+                      "alias": "Decompression Bombs \ud83d\udca3"
+                    },
+                    {
+                      "formula": "query2",
+                      "alias": "Invalid Images \ud83d\udeab"
+                    }
+                  ],
+                  "queries": [
+                    {
+                      "data_source": "metrics",
+                      "name": "query1",
+                      "query": "sum:tryon.security.decompression_bomb{service:tryonservice}"
+                    },
+                    {
+                      "data_source": "metrics",
+                      "name": "query2",
+                      "query": "sum:tryon.security.invalid_image{service:tryonservice}"
+                    }
+                  ],
+                  "response_format": "timeseries",
+                  "style": {
+                    "palette": "warm",
+                    "line_type": "solid",
+                    "line_width": "normal"
+                  },
+                  "display_type": "bars"
+                }
+              ],
+              "markers": [
+                {
+                  "value": "y = 5",
+                  "display_type": "error dashed",
+                  "label": "Critical (5+ attacks/5min)"
+                }
+              ]
+            },
+            "layout": {
+              "x": 8,
+              "y": 0,
+              "width": 4,
+              "height": 2
+            }
+          }
+        ]
+      },
+      "layout": {
+        "x": 0,
+        "y": 33,
         "width": 12,
         "height": 3
       }
@@ -1412,7 +1876,7 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:trace.grpc.request.hits{service:chatbotservice}.as_rate()"
+                      "query": "sum:llm.request.count{service:chatbotservice}.as_count()"
                     }
                   ],
                   "response_format": "timeseries",
@@ -1421,7 +1885,7 @@
                     "line_type": "solid",
                     "line_width": "normal"
                   },
-                  "display_type": "line"
+                  "display_type": "bars"
                 }
               ]
             },
@@ -1450,7 +1914,7 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:trace.grpc.request.hits{service:peau-agent OR service:peau_agent}.as_rate()"
+                      "query": "sum:llm.request.count{service:peau-agent OR service:peau_agent OR service:beauagent}.as_count()"
                     }
                   ],
                   "response_format": "timeseries",
@@ -1459,7 +1923,7 @@
                     "line_type": "solid",
                     "line_width": "normal"
                   },
-                  "display_type": "line"
+                  "display_type": "bars"
                 }
               ]
             },
@@ -1472,7 +1936,7 @@
           },
           {
             "definition": {
-              "title": "Shopping Assistant Requests",
+              "title": "Try-On Service Requests",
               "title_size": "16",
               "title_align": "left",
               "show_legend": true,
@@ -1488,7 +1952,7 @@
                     {
                       "data_source": "metrics",
                       "name": "query1",
-                      "query": "sum:trace.grpc.request.hits{service:shoppingassistantservice}.as_rate()"
+                      "query": "sum:tryon.request.count{service:tryonservice}.as_count()"
                     }
                   ],
                   "response_format": "timeseries",
@@ -1497,7 +1961,7 @@
                     "line_type": "solid",
                     "line_width": "normal"
                   },
-                  "display_type": "line"
+                  "display_type": "bars"
                 }
               ]
             },

@@ -51,30 +51,42 @@ dd_initialize(
 
 def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float, 
                      quality_score: float = None, model_name: str = "gemini-2.0-flash",
-                     invalid_product_rate: float = 0.0, injection_score: float = 0.0,
-                     session_id: str = None, user_id: str = None):
+                     injection_score: float = 0.0,
+                     session_id: str = None, user_id: str = None,
+                     chatbot_service: 'ChatbotService' = None, source: str = "chatbot"):
     """Emit custom LLM metrics to Datadog.
     
     This emits BOTH:
     1. Span tags (visible in APM traces)
     2. Proper metrics (queryable via Metrics API)
     
-    Metrics emitted match the 5 Detection Rules:
-    - Rule 3: llm.cost_per_conversion (cost anomaly)
+    Metrics emitted match the Detection Rules:
+    - Rule 3: llm.cost_per_conversion (interactions per conversion)
+      Calculated as: total_llm_interactions / number_of_products_in_cart
+      This shows how many AI chats it takes to get a user to add something to cart
+      Higher values = less efficient (user needs more help to convert)
+      Lower values = more efficient (user converts quickly)
     - Rule 4: llm.response.quality_score (quality degradation)
-    - Rule 1: llm.recommendation.invalid_product_rate (hallucination)
     - Rule 2: llm.security.injection_attempt_score (prompt injection)
     - Rule 5: llm.prediction.error_probability (via observability agent)
     
     Args:
-        session_id: Optional session identifier for tracking which session triggered alerts
-        user_id: Optional user identifier for tracking which user triggered alerts
+        input_tokens: Number of input tokens for this LLM call
+        output_tokens: Number of output tokens for this LLM call
+        duration_ms: Duration of the LLM call in milliseconds
+        quality_score: Quality score of the response (0-1)
+        model_name: Name of the LLM model used
+        injection_score: Prompt injection attempt score
+        session_id: Session identifier for tracking
+        user_id: User identifier for tracking and querying cart
+        chatbot_service: Reference to ChatbotService for cart access and interaction tracking
+        source: Source of the LLM call ("chatbot" or "peau") for tracking
     """
     # DEBUG: Log all incoming values
     logger.info(f"emit_llm_metrics called: input_tokens={input_tokens}, output_tokens={output_tokens}, "
                 f"duration_ms={duration_ms:.2f}, quality_score={quality_score}, "
-                f"invalid_product_rate={invalid_product_rate}, injection_score={injection_score}, "
-                f"session_id={session_id}")
+                f"injection_score={injection_score}, "
+                f"session_id={session_id}, user_id={user_id}, source={source}")
     
     # Tags matching the monitor queries: env:hackathon, service:v-commerce
     tags = [
@@ -89,6 +101,9 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
     if user_id:
         tags.append(f"user_id:{user_id}")
     
+    # Add source tag to differentiate chatbot vs PEAU agent interactions
+    tags.append(f"llm.source:{source}")
+    
     # Also emit with chatbotservice tag for more granular tracking
     service_tags = tags + ["service:chatbotservice"]
     
@@ -102,6 +117,7 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
         span.set_tag("llm.tokens.output", output_tokens)
         span.set_tag("llm.tokens.total", input_tokens + output_tokens)
         span.set_tag("llm.request.duration_ms", duration_ms)
+        span.set_tag("llm.source", source)
         if quality_score is not None:
             span.set_tag("llm.response.quality_score", quality_score)
         if session_id:
@@ -109,21 +125,98 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
         if user_id:
             span.set_tag("user_id", user_id)
     
-    # ===== Rule 3: Cost metrics =====
-    # Estimate cost (Gemini 2.0 Flash pricing approximation)
-    # Input: $0.075 per 1M tokens, Output: $0.30 per 1M tokens
+    # ===== Rule 3: Interactions-Per-Conversion metrics =====
+    # Instead of fractional dollar costs, we track LLM INTERACTION COUNT per conversion
+    # This gives meaningful values like 2, 5, 10 (chats needed to convert)
+    # rather than tiny fractions like $0.00022
+    
+    # Calculate cost for THIS LLM call (still useful for reporting)
     input_cost = (input_tokens / 1_000_000) * 0.075
     output_cost = (output_tokens / 1_000_000) * 0.30
-    total_cost = input_cost + output_cost
+    this_call_cost = input_cost + output_cost
     
-    # Emit cost_per_conversion (for Rule 3 monitor)
-    # In a real app, this would be cost / conversions, but we'll use cost per request
-    statsd.gauge("llm.cost_per_conversion", total_cost, tags=tags)
-    statsd.gauge("llm.tokens.total_cost_usd", total_cost, tags=tags)
+    # Always emit the per-request cost as a separate metric
+    statsd.gauge("llm.tokens.total_cost_usd", this_call_cost, tags=tags)
+    
+    # Track cumulative INTERACTION COUNT per user and calculate interactions-per-conversion
+    interactions_per_conversion = 1.0  # Default: 1 interaction if no tracking available
+    conversion_count = 0
+    interaction_count = 1  # This call counts as 1 interaction
+    
+    # Use the effective user ID (prefer user_id, fall back to session_id)
+    effective_user_id = user_id or session_id
+    
+    if chatbot_service and effective_user_id:
+        # Initialize tracking for this user if not exists
+        if effective_user_id not in chatbot_service.session_costs:
+            chatbot_service.session_costs[effective_user_id] = {
+                'chatbot_interactions': 0,
+                'peau_interactions': 0,
+                'total_interactions': 0,
+                'chatbot_cost': 0.0,
+                'peau_cost': 0.0,
+                'total_cost': 0.0
+            }
+        
+        # Add this call to the cumulative total
+        cost_entry = chatbot_service.session_costs[effective_user_id]
+        if source == "chatbot":
+            cost_entry['chatbot_interactions'] += 1
+            cost_entry['chatbot_cost'] += this_call_cost
+        elif source == "peau":
+            cost_entry['peau_interactions'] += 1
+            cost_entry['peau_cost'] += this_call_cost
+        
+        cost_entry['total_interactions'] = cost_entry['chatbot_interactions'] + cost_entry['peau_interactions']
+        cost_entry['total_cost'] = cost_entry['chatbot_cost'] + cost_entry['peau_cost']
+        
+        interaction_count = cost_entry['total_interactions']
+        cumulative_cost = cost_entry['total_cost']
+        
+        # Query cart service to get conversion count (number of unique products in cart)
+        try:
+            conversion_count = chatbot_service.cart_client.get_conversion_count(effective_user_id)
+            logger.info(f"User {effective_user_id}: interactions={interaction_count} "
+                       f"(chatbot={cost_entry['chatbot_interactions']}, peau={cost_entry['peau_interactions']}), "
+                       f"conversions={conversion_count}")
+        except Exception as e:
+            logger.warning(f"Failed to get conversion count from cart service: {e}")
+            conversion_count = 0
+        
+        # Calculate INTERACTIONS-PER-CONVERSION
+        # This is the key metric: "How many AI chats does it take to get a conversion?"
+        if conversion_count > 0:
+            interactions_per_conversion = interaction_count / conversion_count
+            logger.info(f"INTERACTIONS_PER_CONVERSION for user {effective_user_id}: "
+                       f"{interaction_count} interactions / {conversion_count} conversions = {interactions_per_conversion:.2f}")
+        else:
+            # No conversions yet - report total interactions (all effort with no result)
+            # High values here indicate users who chat a lot but don't buy
+            interactions_per_conversion = float(interaction_count)
+            logger.info(f"No conversions yet for user {effective_user_id}, "
+                       f"interactions_per_conversion = {interaction_count} (all chats, no purchases)")
+    else:
+        logger.info(f"No chatbot_service or user tracking available, defaulting to 1 interaction")
+    
+    # Emit cost_per_conversion using INTERACTION COUNT (not fractional dollars)
+    # This gives values like 2.5, 5.0, 10.0 which are much more intuitive
+    # Meaning: "User needed X AI interactions per item added to cart"
+    statsd.gauge("llm.cost_per_conversion", interactions_per_conversion, tags=tags)
+    
+    # Also emit additional metrics for deeper analysis
+    statsd.gauge("llm.interaction_count", interaction_count, tags=tags)
+    statsd.gauge("llm.conversion_count", conversion_count, tags=tags)
+    # Keep cost metrics for reference
+    statsd.gauge("llm.cumulative_cost_usd", cost_entry.get('total_cost', this_call_cost) if chatbot_service and effective_user_id else this_call_cost, tags=tags)
     
     if span:
-      logger.info(f"Setting span tags: llm.cost_per_conversion={total_cost}, llm.tokens.total_cost_usd={total_cost}")
-      span.set_tag("llm.cost_per_conversion", total_cost)
+        logger.info(f"Setting span tags: llm.cost_per_conversion={interactions_per_conversion}, "
+                   f"llm.interaction_count={interaction_count}, llm.conversion_count={conversion_count}")
+        span.set_tag("llm.cost_per_conversion", interactions_per_conversion)
+        span.set_tag("llm.interaction_count", interaction_count)
+        span.set_tag("llm.conversion_count", conversion_count)
+        span.set_tag("llm.cumulative_cost_usd", cumulative_cost)
+        span.set_tag("llm.conversion_count", conversion_count)
     
     # ===== Rule 4: Quality score =====
     if quality_score is not None:
@@ -132,11 +225,6 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
           logger.info(f"Setting span tags: llm.response.quality_score={quality_score}")
           span.set_tag("llm.response.quality_score", quality_score)
     
-    # ===== Rule 1: Hallucination detection =====
-    statsd.gauge("llm.recommendation.invalid_product_rate", invalid_product_rate, tags=tags)
-    if span:
-      logger.info(f"Setting span tags: llm.recommendation.invalid_product_rate={invalid_product_rate}")
-      span.set_tag("llm.recommendation.invalid_product_rate", invalid_product_rate)
     
     # ===== Rule 2: Prompt injection score =====  
     statsd.gauge("llm.security.injection_attempt_score", injection_score, tags=tags)
@@ -155,10 +243,14 @@ def emit_llm_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
     
     # DEBUG: Confirm metrics were emitted - log ALL values
     logger.info(f"Metrics pushed to Datadog: "
-                f"invalid_product_rate={invalid_product_rate}, "
+                f"interactions_per_conversion={interactions_per_conversion}, "
+                f"cumulative_cost={cumulative_cost}, "
+                f"conversion_count={conversion_count}, "
+                f"this_call_cost={this_call_cost}, "
                 f"injection_score={injection_score}, "
                 f"quality_score={quality_score}, "
-                f"session_id={session_id}, "
+                f"session_id={session_id}, user_id={user_id}, "
+                f"source={source}, "
                 f"input_tokens={input_tokens}, "
                 f"output_tokens={output_tokens}, "
                 f"total_tokens={input_tokens + output_tokens}, "
@@ -239,13 +331,6 @@ def calculate_quality_score(response_text: str, input_message: str, products_fou
         
         if not has_product_content and products_found == 0:
             score -= 0.25  # Failed to provide product info when asked
-    
-    # Check for potential hallucinations - mentioning products without IDs when catalog is available
-    # If response mentions "product" but no bracketed IDs, could be making things up
-    mentions_products = 'product' in response_lower or 'item' in response_lower
-    has_product_ids = '[' in response_text and ']' in response_text
-    if mentions_products and not has_product_ids and is_shopping_query:
-        score -= 0.15  # Potentially hallucinating products
     
     # Positive patterns (indicate helpful response)
     positive_patterns = [
@@ -516,6 +601,57 @@ class ProductCatalogClient:
             logger.error(f"Error searching products with query '{query}': {e}")
             return []
 
+
+class CartServiceClient:
+    """Client for communicating with the Cart Service via gRPC to get conversion data"""
+    
+    def __init__(self, cart_service_addr: str):
+        self.cart_service_addr = cart_service_addr
+        self.channel = None
+        self.stub = None
+        self._connect()
+    
+    def _connect(self):
+        """Establish gRPC connection to cart service"""
+        try:
+            self.channel = grpc.insecure_channel(self.cart_service_addr)
+            self.stub = demo_pb2_grpc.CartServiceStub(self.channel)
+            logger.info(f"Connected to cart service at {self.cart_service_addr}")
+        except Exception as e:
+            logger.error(f"Failed to connect to cart service: {e}")
+            # Don't raise - cart service might not be available but chatbot should still work
+            self.stub = None
+    
+    def get_cart(self, user_id: str) -> Dict[str, Any]:
+        """Get cart for a specific user"""
+        if not self.stub:
+            logger.warning("Cart service not connected, returning empty cart")
+            return {'user_id': user_id, 'items': [], 'total_items': 0}
+        
+        try:
+            request = demo_pb2.GetCartRequest(user_id=user_id)
+            response = self.stub.GetCart(request)
+            items = []
+            for item in response.items:
+                items.append({
+                    'product_id': item.product_id,
+                    'quantity': item.quantity
+                })
+            return {
+                'user_id': response.user_id,
+                'items': items,
+                'total_items': len(items)  # Number of unique products (conversions)
+            }
+        except Exception as e:
+            logger.error(f"Error getting cart for user {user_id}: {e}")
+            return {'user_id': user_id, 'items': [], 'total_items': 0}
+    
+    def get_conversion_count(self, user_id: str) -> int:
+        """Get the number of unique products in cart (conversions) for a user"""
+        cart = self.get_cart(user_id)
+        return cart.get('total_items', 0)
+
+
 class ChatbotService:
     """Main chatbot service using Gemini 2.0 Flash"""
 
@@ -523,6 +659,7 @@ class ChatbotService:
         self.project_id = project_id
         self.location = location
         self.sessions = {}  # Store session data
+        self.session_costs = {}  # Track cumulative LLM costs per session/user for cost-per-conversion
         
         try:
             logger.info(f"Initializing Vertex AI with project_id='{project_id}', location='{location}'")
@@ -550,6 +687,11 @@ class ChatbotService:
             peau_agent_mcp_addr = os.getenv('PEAU_AGENT_MCP_ADDR', 'localhost:8081')
             logger.info(f"Connecting to PEAU Agent MCP at: {peau_agent_mcp_addr}")
             self.peau_agent_client = PEAUAgentClient(peau_agent_mcp_addr)
+
+            # Initialize Cart Service client for conversion tracking
+            cart_service_addr = os.getenv('CART_SERVICE_ADDR', 'cartservice:7070')
+            logger.info(f"Connecting to cart service at: {cart_service_addr}")
+            self.cart_client = CartServiceClient(cart_service_addr)
 
             # Initialize RAG manager (optional - graceful fallback)
             try:
@@ -651,7 +793,9 @@ class ChatbotService:
                     injection_score = detect_injection_attempt(user_message)
                     emit_llm_metrics(input_tokens, output_tokens, duration_ms, 
                                    quality_score=quality_score,
-                                   injection_score=injection_score)
+                                   injection_score=injection_score,
+                                   chatbot_service=self,
+                                   source="chatbot")
                     
                     # Annotate LLMObs span with output
                     LLMObs.annotate(
@@ -731,9 +875,6 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
             # Extract recommended product IDs from response
             recommended_products = self._extract_product_ids(final_response_text, products)
             
-            # Check for potential hallucinations (invalid product IDs) - Rule 1
-            invalid_product_rate = self._calculate_invalid_product_rate(final_response_text, products)
-            
             # Detect prompt injection - Rule 2
             injection_score = detect_injection_attempt(user_message)
             
@@ -748,8 +889,9 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
             # Emit all detection metrics
             emit_llm_metrics(input_tokens, output_tokens, duration_ms, 
                            quality_score=quality_score,
-                           invalid_product_rate=invalid_product_rate,
-                           injection_score=injection_score)
+                           injection_score=injection_score,
+                           chatbot_service=self,
+                           source="chatbot")
             
             # Annotate LLMObs span with output
             LLMObs.annotate(
@@ -758,8 +900,7 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
                 metadata={
                     "rag_enhanced": False, 
                     "recommended_products": recommended_products,
-                    "products_considered": len(products),
-                    "invalid_product_rate": invalid_product_rate
+                    "products_considered": len(products)
                 }
             )
 
@@ -839,24 +980,6 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
                 matches.append(product_id)
 
         return matches
-    
-    def _calculate_invalid_product_rate(self, response_text: str, valid_products: List[Dict[str, Any]]) -> float:
-        """Calculate the rate of invalid product IDs mentioned in the response (hallucination detection)"""
-        import re
-        # Extract all product IDs mentioned in the response
-        product_id_pattern = r'\[([A-Z0-9]+)\]'
-        mentioned_ids = re.findall(product_id_pattern, response_text)
-        
-        if not mentioned_ids:
-            return 0.0
-        
-        # Get valid product IDs
-        valid_ids = {p['id'] for p in valid_products}
-        
-        # Count invalid IDs
-        invalid_count = sum(1 for pid in mentioned_ids if pid not in valid_ids)
-        
-        return invalid_count / len(mentioned_ids) if mentioned_ids else 0.0
 
     def get_or_create_session(self, session_id: str = None) -> str:
         """Get existing session or create a new one"""
@@ -870,6 +993,64 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
             }
 
         return session_id
+
+    def add_peau_cost(self, user_id: str, input_tokens: int, output_tokens: int, duration_ms: float = 0):
+        """Track PEAU agent LLM interaction for a user's interactions-per-conversion calculation.
+        
+        This method is called by the PEAU agent (or via HTTP endpoint) to report its LLM usage
+        so that the interactions-per-conversion metric includes both chatbot and PEAU agent interactions.
+        
+        Args:
+            user_id: User/session identifier
+            input_tokens: Number of input tokens used
+            output_tokens: Number of output tokens used
+            duration_ms: Duration of the LLM call (optional)
+        """
+        # Calculate cost (Gemini 2.0 Flash pricing) - kept for reference
+        input_cost = (input_tokens / 1_000_000) * 0.075
+        output_cost = (output_tokens / 1_000_000) * 0.30
+        peau_cost = input_cost + output_cost
+        
+        # Initialize tracking for this user if not exists
+        if user_id not in self.session_costs:
+            self.session_costs[user_id] = {
+                'chatbot_interactions': 0,
+                'peau_interactions': 0,
+                'total_interactions': 0,
+                'chatbot_cost': 0.0,
+                'peau_cost': 0.0,
+                'total_cost': 0.0
+            }
+        
+        # Add PEAU interaction and cost
+        cost_entry = self.session_costs[user_id]
+        cost_entry['peau_interactions'] += 1
+        cost_entry['peau_cost'] += peau_cost
+        cost_entry['total_interactions'] = cost_entry['chatbot_interactions'] + cost_entry['peau_interactions']
+        cost_entry['total_cost'] = cost_entry['chatbot_cost'] + cost_entry['peau_cost']
+        
+        logger.info(f"Added PEAU interaction for user {user_id}: "
+                   f"interactions={cost_entry['total_interactions']} "
+                   f"(chatbot={cost_entry['chatbot_interactions']}, peau={cost_entry['peau_interactions']})")
+        
+        # Emit the PEAU metrics with source="peau"
+        emit_llm_metrics(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            duration_ms=duration_ms,
+            user_id=user_id,
+            session_id=user_id,
+            chatbot_service=self,
+            source="peau"
+        )
+        
+        return {
+            'user_id': user_id,
+            'peau_interactions': cost_entry['peau_interactions'],
+            'total_interactions': cost_entry['total_interactions'],
+            'peau_cost_added': peau_cost,
+            'cumulative_cost': cost_entry['total_cost']
+        }
 
     def generate_streaming_response(self, user_message: str, session_id: str = None, conversation_history: List[str] = None) -> Generator:
         """Generate streaming response using Gemini's streaming API"""
@@ -937,18 +1118,17 @@ IMPORTANT: Whenever you mention or recommend a specific product, ALWAYS include 
             # Detect prompt injection for Rule 2
             injection_score = detect_injection_attempt(user_message)
             
-            # Calculate hallucination rate for Rule 1
-            invalid_product_rate = self._calculate_invalid_product_rate(full_response, products)
-            
             # Log the quality metrics for observability
-            logger.info(f"Quality metrics - score: {quality_score:.2f}, invalid_rate: {invalid_product_rate:.2f}, injection: {injection_score:.2f}")
+            logger.info(f"Quality metrics - score: {quality_score:.2f}, injection: {injection_score:.2f}")
             
             # Emit all detection metrics
             emit_llm_metrics(input_tokens, output_tokens, duration_ms, 
                            quality_score=quality_score,
-                           invalid_product_rate=invalid_product_rate,
                            injection_score=injection_score,
-                           session_id=session_id)
+                           session_id=session_id,
+                           user_id=session_id,  # Use session_id as user_id for cost tracking
+                           chatbot_service=self,
+                           source="chatbot")
             # ===== END EMIT LLM METRICS =====
 
             # Yield metadata as the last chunk
@@ -1108,6 +1288,51 @@ def create_flask_app(chatbot_service: ChatbotService) -> Flask:
                 'success': False,
                 'error': f'Internal server error: {str(e)}',
                 'error_type': type(e).__name__
+            }), 500
+    
+    @app.route('/peau_cost', methods=['POST'])
+    def report_peau_cost():
+        """Endpoint for PEAU agent to report its LLM costs for cost-per-conversion tracking.
+        
+        Request body:
+        {
+            "user_id": "user or session identifier",
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "duration_ms": 500  // optional
+        }
+        """
+        try:
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({'error': 'Request body required'}), 400
+            
+            user_id = data.get('user_id')
+            input_tokens = data.get('input_tokens', 0)
+            output_tokens = data.get('output_tokens', 0)
+            duration_ms = data.get('duration_ms', 0)
+            
+            if not user_id:
+                return jsonify({'error': 'user_id is required'}), 400
+            
+            result = chatbot_service.add_peau_cost(
+                user_id=user_id,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                duration_ms=duration_ms
+            )
+            
+            return jsonify({
+                'success': True,
+                **result
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in peau_cost endpoint: {str(e)}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
             }), 500
     
     return app

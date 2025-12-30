@@ -251,13 +251,12 @@ v-commerce includes **specialized Datadog LLM observability** for AI-powered ser
 
 #### 🚨 Automated Detection Rules
 
-Five specialized detection rules automatically identify issues:
+Four specialized detection rules automatically identify issues:
 
-1. **Hallucination Detection** - Detects when LLMs generate invalid or incorrect product recommendations
-2. **Prompt Injection Detection** - Identifies adversarial prompts attempting to manipulate AI services
-3. **Cost-Per-Conversion Anomaly** - Alerts when LLM costs spike relative to business outcomes
-4. **Response Quality Degradation** - Monitors for declining response quality over time
-5. **Predictive Capacity Alert** - Warns of sustained high load that may impact capacity
+1. **Prompt Injection Detection** - Identifies adversarial prompts attempting to manipulate AI services
+2. **Interactions-Per-Conversion Anomaly** - Alerts when too many AI chat interactions are needed per cart conversion
+3. **Response Quality Degradation** - Monitors for declining response quality over time
+4. **Predictive Capacity Alert** - Warns of sustained high load that may impact capacity
 
 #### 🎯 SLOs & Incident Management
 
@@ -434,7 +433,7 @@ v-commerce/
 - **Datadog LLM Observability** - Specialized monitoring for AI/LLM services with token tracking, cost monitoring, and quality metrics
 - **Datadog Metrics** - Custom business and technical metrics with pre-configured dashboards
 - **Datadog Logs** - Centralized log aggregation with trace correlation
-- **Datadog Detection Rules** - Automated detection of hallucinations, prompt injection, cost anomalies, and quality issues
+- **Datadog Detection Rules** - Automated detection of prompt injection, cost anomalies, and quality issues
 - **Datadog SLOs & Incident Management** - Service level objectives and automated incident response
 - **OpenTelemetry** - Telemetry collection and export to Datadog
 - **ddtrace** - Python/Node.js automatic instrumentation

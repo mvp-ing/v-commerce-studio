@@ -40,8 +40,13 @@ LLMObs.enable(
 )
 
 def emit_peau_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
-                      tool_calls: int = 0, model_name: str = "gemini-2.0-flash"):
-    """Emit custom PEAU Agent metrics to Datadog"""
+                      tool_calls: int = 0, model_name: str = "gemini-2.0-flash",
+                      user_id: str = None):
+    """Emit custom PEAU Agent metrics to Datadog and report costs to chatbot service.
+    
+    This reports costs to the chatbot service so that cost-per-conversion includes
+    both chatbot and PEAU agent LLM calls.
+    """
     span = tracer.current_span()
     if span:
         span.set_tag("llm.model", model_name)
@@ -55,6 +60,31 @@ def emit_peau_metrics(input_tokens: int, output_tokens: int, duration_ms: float,
         input_cost = (input_tokens / 1_000_000) * 0.075
         output_cost = (output_tokens / 1_000_000) * 0.30
         span.set_tag("llm.tokens.total_cost_usd", input_cost + output_cost)
+    
+    # Report PEAU costs to chatbot service for cost-per-conversion tracking
+    if user_id:
+        try:
+            chatbot_service_addr = os.getenv('CHATBOT_SERVICE_ADDR', 'chatbotservice:8080')
+            response = requests.post(
+                f"http://{chatbot_service_addr}/peau_cost",
+                json={
+                    "user_id": user_id,
+                    "input_tokens": input_tokens,
+                    "output_tokens": output_tokens,
+                    "duration_ms": duration_ms
+                },
+                timeout=2  # Short timeout to not block
+            )
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"Reported PEAU cost to chatbot service for user {user_id}: "
+                           f"peau_cost_added=${result.get('peau_cost_added', 0):.6f}, "
+                           f"cumulative=${result.get('cumulative_cost', 0):.6f}")
+            else:
+                logger.warning(f"Failed to report PEAU cost to chatbot service: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            # Don't fail if chatbot service is unavailable - just log and continue
+            logger.warning(f"Could not report PEAU cost to chatbot service: {e}")
 
 # ============================================
 
@@ -451,11 +481,11 @@ Do no hallucinate in returning product IDs.
                 
                 recommended_product_ids = self._extract_product_ids(suggestion_text)
                 
-                # Emit metrics
+                # Emit metrics and report to chatbot service for cost-per-conversion
                 duration_ms = (time.time() - start_time) * 1000
                 input_tokens = len(prompt) // 4
                 output_tokens = len(suggestion_text) // 4
-                emit_peau_metrics(input_tokens, output_tokens, duration_ms, tool_call_count)
+                emit_peau_metrics(input_tokens, output_tokens, duration_ms, tool_call_count, user_id=user_id)
                 
                 # Annotate LLMObs span
                 LLMObs.annotate(
