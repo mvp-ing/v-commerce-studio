@@ -98,67 +98,93 @@ def get_detection_rules() -> List[Dict[str, Any]]:
     """Return the 6 LLM detection rules."""
     return [
         
-#         # Rule 2: Prompt Injection Detection
-#         {
-#             "name": "[V-Commerce] LLM Prompt Injection / Adversarial Input Detection",
-#             "type": "metric alert",
-#             "query": "max(last_5m):max:llm.security.injection_attempt_score{env:hackathon,service:v-commerce} > 0.7",
-#             "message": """## 🔴 SECURITY ALERT: Prompt Injection Attempt Detected
-
-# **Service:** {{service.name}}
-# **Environment:** {{env}}
-
-# ### What's happening?
-# A potential prompt injection or adversarial input attempt has been detected. The injection attempt score has exceeded 0.7 (high confidence).
-
-# **Injection Score:** {{value}}
-# **Threshold:** 0.7
-
-# ### Potential Attack Vectors Detected
-# - System prompt extraction attempts
-# - Jailbreak attempts
-# - SQL/code injection patterns in prompts
-# - Instruction override attempts
-
-# ### Immediate Actions Required
-# 1. ⚠️ Review the suspicious request in LLM Observability traces
-# 2. Check session ID and user context for repeat offenders
-# 3. Consider temporary rate limiting for the source IP/session
-# 4. Preserve logs for security investigation
-
-# ### Security Runbook
-# - Extract full prompt from LLM Observability span
-# - Check user session history for patterns
-# - Review IP geolocation and request headers
-# - If confirmed malicious: block session, notify security team
-
-# @slack-security-alerts @pagerduty-security""",
-#             "tags": [
-#                 "env:hackathon",
-#                 "service:v-commerce",
-#                 "team:security",
-#                 "detection_rule:injection",
-#                 "severity:critical",
-#                 "category:security"
-#             ],
-#             "options": {
-#                 "thresholds": {
-#                     "critical": 0.7,
-#                     "warning": 0.5
-#                 },
-#                 "notify_no_data": False,
-#                 "renotify_interval": 10,
-#                 "include_tags": True,
-#                 "require_full_window": False,
-#                 "new_host_delay": 0,
-#                 "evaluation_delay": 0
-#             },
-#             "priority": 1
-#         },
-        
-        # Rule 3: Interactions-Per-Conversion Anomaly (formerly Cost-Per-Conversion)
+        # Rule 1: Prompt Injection Detection
         {
-            "name": "[V-Commerce] LLM Interactions-Per-Conversion Anomaly Detection",
+            "name": "[V-Commerce] LLM Prompt Injection / Adversarial Input Detection",
+            "type": "metric alert",
+            # Query grouped by session_id to track attackers
+            "query": "max(last_5m):max:llm.security.injection_attempt_score{env:hackathon,service:v-commerce} by {session_id} > 0.7",
+            "message": """## 🔴 SECURITY INCIDENT: Prompt Injection Attempt Detected
+
+**Service:** {{service.name}}
+**Environment:** {{env}}
+
+---
+
+### 🚨 ATTACKER IDENTIFIED
+
+**Attacker Session ID:** {{session_id.name}}
+**Injection Score:** {{value}}
+**Threshold:** 0.7 (high confidence)
+
+---
+
+### What's happening?
+A potential prompt injection or adversarial input attempt has been detected from session `{{session_id.name}}`. The injection attempt score has exceeded 0.7 (high confidence).
+
+### Attack Types Detected
+- System prompt extraction attempts
+- Jailbreak attempts (bypassing safety guardrails)
+- SQL/code injection patterns in prompts
+- Instruction override attempts
+- Data exfiltration via prompt manipulation
+
+### 🔒 Immediate Actions Required
+1. ⚠️ **BLOCK SESSION:** Consider blocking session `{{session_id.name}}`
+2. Review the malicious prompt in LLM Observability traces
+3. Check if this session has other suspicious activity
+4. Preserve logs for security forensics
+5. Rate limit or terminate the session
+
+### Security Runbook
+- Extract full prompt from LLM Observability span for session `{{session_id.name}}`
+- Check session history for escalating attack patterns
+- Review IP geolocation and request headers
+- If confirmed malicious: block session, notify security team
+- Consider adding prompt pattern to blocklist
+
+### Impact Assessment
+- Potential exposure of system prompts
+- Risk of bypassing content safety filters
+- Possible data exfiltration via crafted prompts
+- Model behavior manipulation
+
+### 📊 View Attack Details
+[View LLM Traces for Session →](https://app.datadoghq.com/apm/traces?query=service%3Achatbotservice%20%40session_id%3A{{session_id.name}})
+
+@incident-prompt-injection
+
+🚨 **INCIDENT CREATED** - Security team has been notified. Track attacker session: `{{session_id.name}}`
+""",
+            "tags": [
+                "env:hackathon",
+                "service:v-commerce",
+                "team:security",
+                "detection_rule:injection",
+                "severity:critical",
+                "category:security",
+                "incident:auto-create"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 0.7,
+                    "warning": 0.5
+                },
+                "notify_no_data": False,
+                "renotify_interval": 5,  # Re-alert every 5 mins during active attack
+                "include_tags": True,
+                "require_full_window": False,
+                "new_host_delay": 0,
+                "evaluation_delay": 0,
+                "notify_audit": True,  # Enable audit trail for incidents
+                "escalation_message": "🚨 ESCALATION: Prompt injection attack from session {{session_id.name}} is still ongoing!"
+            },
+            "priority": 1
+        },
+        
+        # Rule 2: Interactions-Per-Conversion Anomaly (formerly Cost-Per-Conversion)
+        {
+                "name": "[V-Commerce] LLM Interactions-Per-Conversion Anomaly Detection",
             "type": "metric alert",
             "query": "avg(last_1h):avg:llm.cost_per_conversion{env:hackathon,service:v-commerce} > 10.0",
             "message": """## 💬 High AI Interactions Per Conversion Detected
@@ -227,221 +253,239 @@ The `llm.cost_per_conversion` metric tracks **how many AI interactions it takes 
             "priority": 3
         },
         
-#         # Rule 4: Response Quality Degradation
-#         {
-#             "name": "[V-Commerce] LLM Response Quality Degradation Alert",
-#             "type": "metric alert",
-#             "query": "avg(last_5m):avg:llm.response.quality_score{env:hackathon,service:v-commerce} < 0.6",
-#             "message": """## ⚠️ LLM Response Quality Degradation Detected
+        # Rule 3: Response Quality Degradation
+        {
+            "name": "[V-Commerce] LLM Response Quality Degradation Alert",
+            "type": "metric alert",
+            "query": "avg(last_5m):avg:llm.response.quality_score{env:hackathon,service:v-commerce} < 0.6",
+            "message": """## ⚠️ LLM Response Quality Degradation Detected
 
-# **Service:** {{service.name}}
-# **Environment:** {{env}}
+**Service:** {{service.name}}
+**Environment:** {{env}}
 
-# ### What's happening?
-# The LLM response quality score has dropped below acceptable levels. This indicates the chatbot/assistant responses are becoming less helpful to users.
+### What's happening?
+The LLM response quality score has dropped below acceptable levels. This indicates the chatbot/assistant responses are becoming less helpful to users.
 
-# **Current Quality Score:** {{value}}
-# **Threshold:** 0.6 (minimum acceptable)
+**Current Quality Score:** {{value}}
+**Threshold:** 0.6 (minimum acceptable)
 
-# ### Quality Signals Affected
-# - Response coherence and relevance
-# - Product ID extraction success rate
-# - Response length appropriateness
-# - User engagement with recommendations
+### Quality Signals Affected
+- Response coherence and relevance
+- Product ID extraction success rate
+- Response length appropriateness
+- User engagement with recommendations
 
-# ### Potential Root Causes
-# 1. Model being rate-limited by Vertex AI
-# 2. Context window overflow (too much history)
-# 3. RAG retrieval returning irrelevant documents
-# 4. Recent prompt/system message changes
-# 5. Model endpoint health issues
+### Potential Root Causes
+1. Model being rate-limited by Vertex AI
+2. Context window overflow (too much history)
+3. RAG retrieval returning irrelevant documents
+4. Recent prompt/system message changes
+5. Model endpoint health issues
 
-# ### Investigation Steps
-# 1. Check Vertex AI quotas and rate limits
-# 2. Review sample degraded responses in LLM Observability
-# 3. Verify model endpoint latency (high latency = potential throttling)
-# 4. Check recent deployments to LLM services
-# 5. Review context window usage patterns
+### Investigation Steps
+1. Check Vertex AI quotas and rate limits
+2. Review sample degraded responses in LLM Observability
+3. Verify model endpoint latency (high latency = potential throttling)
+4. Check recent deployments to LLM services
+5. Review context window usage patterns
 
-# ### Runbook
-# - Verify Vertex AI quotas
-# - Check model endpoint health in GCP Console
-# - Review recent prompt changes in git history
-# - Consider fallback to cached responses if critical
+### Runbook
+- Verify Vertex AI quotas
+- Check model endpoint health in GCP Console
+- Review recent prompt changes in git history
+- Consider fallback to cached responses if critical
 
-# @slack-llm-alerts @pagerduty-oncall""",
-#             "tags": [
-#                 "env:hackathon",
-#                 "service:v-commerce",
-#                 "team:llm",
-#                 "detection_rule:quality",
-#                 "severity:high",
-#                 "category:quality"
-#             ],
-#             "options": {
-#                 "thresholds": {
-#                     "critical": 0.6,
-#                     "warning": 0.7
-#                 },
-#                 "notify_no_data": False,
-#                 "renotify_interval": 15,
-#                 "include_tags": True,
-#                 "require_full_window": True,
-#                 "new_host_delay": 300,
-#                 "evaluation_delay": 60
-#             },
-#             "priority": 2
-#         },
+@slack-llm-alerts @pagerduty-oncall""",
+            "tags": [
+                "env:hackathon",
+                "service:v-commerce",
+                "team:llm",
+                "detection_rule:quality",
+                "severity:high",
+                "category:quality"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 0.6,
+                    "warning": 0.7
+                },
+                "notify_no_data": False,
+                "renotify_interval": 15,
+                "include_tags": True,
+                "require_full_window": True,
+                "new_host_delay": 300,
+                "evaluation_delay": 60
+            },
+            "priority": 2
+        },
         
-#         # Rule 5: Predictive Capacity Alert
-#         {
-#             "name": "[V-Commerce] AI-Powered Predictive Capacity Alert",
-#             "type": "metric alert",
-#             "query": "avg(last_15m):avg:llm.prediction.error_probability{env:hackathon,service:v-commerce} > 0.8",
-#             "message": """## 🔮 Predictive Alert: Failure Predicted Within 2 Hours
+        # Rule 4: Predictive Capacity Alert
+        {
+            "name": "[V-Commerce] AI-Powered Predictive Capacity Alert",
+            "type": "metric alert",
+            "query": "avg(last_15m):avg:llm.prediction.error_probability{env:hackathon,service:v-commerce} > 0.8",
+            "message": """## 🔮 Predictive Alert: Failure Predicted Within 2 Hours
 
-# **Service:** {{service.name}}
-# **Environment:** {{env.name}}
+**Service:** {{service.name}}
+**Environment:** {{env.name}}
 
-# ### What's happening?
-# The AI-powered Observability Insights Service has predicted a high probability of failure within the next 2 hours based on current traffic patterns and system behavior.
+### What's happening?
+The AI-powered Observability Insights Service has predicted a high probability of failure within the next 2 hours based on current traffic patterns and system behavior.
 
-# **Prediction Confidence:** {{value}}
-# **Threshold:** 80% (0.8) confidence
+**Prediction Confidence:** {{value}}
+**Threshold:** 80% (0.8) confidence
 
-# ---
+---
 
-# ## 🤖 AI-Generated Analysis
+## 🤖 AI-Generated Analysis
 
-# ### Root Cause
-# {{root_cause.name}}
+### Root Cause
+{{root_cause.name}}
 
-# ### Affected Services
-# {{affected_services.name}}
+### Affected Services
+{{affected_services.name}}
 
-# ### Recommended Actions
-# {{actions_summary.name}}
+### Recommended Actions
+{{actions_summary.name}}
 
-# ### Time to Issue
-# {{time_to_issue_hours.name}} hours
+### Time to Issue
+{{time_to_issue_hours.name}} hours
 
-# ---
+---
 
-# ### Trigger Details
-# - **Metric:** `llm.prediction.error_probability`
-# - **Last 15min Average:** {{value}}
-# - **All Tags:** {{tags}}
+### Trigger Details
+- **Metric:** `llm.prediction.error_probability`
+- **Last 15min Average:** {{value}}
+- **All Tags:** {{tags}}
 
-# ### Predicted Failure Scenarios
-# - Approaching Vertex AI rate limits based on traffic trajectory
-# - Latency degradation pattern similar to past incidents
-# - Error rate trending upward
-# - Resource utilization approaching critical levels
+### Predicted Failure Scenarios
+- Approaching Vertex AI rate limits based on traffic trajectory
+- Latency degradation pattern similar to past incidents
+- Error rate trending upward
+- Resource utilization approaching critical levels
 
-# ### 📊 View Full AI Analysis
-# The Observability Insights Service generated this prediction. View the detailed AI analysis event:
-# **[View AI Prediction Events in Datadog →](https://app.datadoghq.com/event/explorer?query=source%3Aobservability_insights%20prediction)**
+### 📊 View Full AI Analysis
+The Observability Insights Service generated this prediction. View the detailed AI analysis event:
+**[View AI Prediction Events in Datadog →](https://app.datadoghq.com/event/explorer?query=source%3Aobservability_insights%20prediction)**
 
-# The event contains the complete Gemini-generated analysis with:
-# - Detailed root cause explanation
-# - Full list of affected services
-# - Step-by-step recommended actions
-# - Time-to-issue estimate
+The event contains the complete Gemini-generated analysis with:
+- Detailed root cause explanation
+- Full list of affected services
+- Step-by-step recommended actions
+- Time-to-issue estimate
 
-# ### Runbook
-# 1. Review the AI-generated root cause analysis above
-# 2. Check current vs projected traffic
-# 3. Implement the recommended actions from the AI analysis
-# 4. Verify scaling policies and limits
-# 5. Notify stakeholders of potential impact
+### Runbook
+1. Review the AI-generated root cause analysis above
+2. Check current vs projected traffic
+3. Implement the recommended actions from the AI analysis
+4. Verify scaling policies and limits
+5. Notify stakeholders of potential impact
 
-# @slack-llm-alerts @slack-sre""",
-#             "tags": [
-#                 "env:hackathon",
-#                 "service:v-commerce",
-#                 "team:sre",
-#                 "detection_rule:predictive",
-#                 "severity:warning",
-#                 "category:capacity"
-#             ],
-#             "options": {
-#                 "thresholds": {
-#                     "critical": 0.8,
-#                     "warning": 0.6
-#                 },
-#                 "notify_no_data": False,
-#                 "renotify_interval": 30,
-#                 "timeout_h": 2,
-#                 "include_tags": True,
-#                 "require_full_window": True,
-#                 "new_host_delay": 300,
-#                 "evaluation_delay": 60
-#             },
-#             "priority": 2
-#         },
+@slack-llm-alerts @slack-sre""",
+            "tags": [
+                "env:hackathon",
+                "service:v-commerce",
+                "team:sre",
+                "detection_rule:predictive",
+                "severity:warning",
+                "category:capacity"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 0.8,
+                    "warning": 0.6
+                },
+                "notify_no_data": False,
+                "renotify_interval": 30,
+                "timeout_h": 2,
+                "include_tags": True,
+                "require_full_window": True,
+                "new_host_delay": 300,
+                "evaluation_delay": 60
+            },
+            "priority": 2
+        },
         
-#         # Rule 6: Multimodal Security Attack Detection (Try-On Service)
-#         {
-#             "name": "[V-Commerce] Multimodal Security Attack Detection - Try-On Service",
-#             "type": "metric alert",
-#             "query": "sum(last_5m):sum:tryon.security.decompression_bomb{env:hackathon,service:tryonservice}.as_count() + sum:tryon.security.invalid_image{env:hackathon,service:tryonservice}.as_count() > 5",
-#             "message": """## 🔴 SECURITY ALERT: Multimodal Attack Detected on Try-On Service
+        # Rule 5: Multimodal Security Attack Detection (Try-On Service)
+        {
+            "name": "[V-Commerce] Multimodal Security Attack Detection - Try-On Service",
+            "type": "metric alert",
+            # Query grouped by user_id to track attackers
+            "query": "sum(last_5m):sum:tryon.security.decompression_bomb{env:hackathon,service:tryonservice} by {user_id}.as_count() + sum:tryon.security.invalid_image{env:hackathon,service:tryonservice} by {user_id}.as_count() > 3",
+            "message": """## 🔴 SECURITY INCIDENT: Multimodal Attack Detected on Try-On Service
 
-# **Service:** {{service.name}}
-# **Environment:** {{env}}
+**Service:** {{service.name}}
+**Environment:** {{env}}
 
-# ### What's happening?
-# The Try-On Service has detected multiple suspicious image uploads that may indicate an ongoing attack. This includes decompression bomb attempts and malformed/malicious image files.
+---
 
-# **Attack Count (5min):** {{value}}
-# **Threshold:** 5 attacks per 5 minutes
+### 🚨 ATTACKER IDENTIFIED
 
-# ### Attack Types Detected
-# - **Decompression Bombs**: Malicious images designed to exhaust server memory when decompressed (e.g., a 1KB file that expands to gigabytes)
-# - **Invalid/Malicious Images**: Corrupted files, polyglot files (images hiding malicious payloads), or files designed to exploit image processing vulnerabilities
+**Attacker User ID(s):** {{user_id.name}}
+**Attack Count (5min):** {{value}}
+**Threshold:** 3 attacks per user per 5 minutes
 
-# ### Immediate Actions Required
-# 1. ⚠️ Check source IPs/sessions for repeat offenders
-# 2. Review uploaded file patterns in APM traces
-# 3. Consider temporary rate limiting for suspicious sources
-# 4. Check server resource utilization (memory, CPU)
-# 5. Preserve logs for security forensics
+---
 
-# ### Security Runbook
-# - Extract request details from Datadog APM traces
-# - Check for patterns: same user, same IP range, specific file signatures
-# - If sustained attack: enable stricter file validation or temporary service protection mode
-# - Notify security team if attack volume is high
-# - Consider implementing CAPTCHA or additional verification for uploads
+### What's happening?
+The Try-On Service has detected multiple suspicious image uploads from the same user that may indicate an ongoing attack. This includes decompression bomb attempts and malformed/malicious image files.
 
-# ### Impact Assessment
-# - Service availability may be degraded under attack
-# - Memory exhaustion could crash pods
-# - Potential for data exfiltration via polyglot files
+### Attack Types Detected
+- **Decompression Bombs**: Malicious images designed to exhaust server memory when decompressed (e.g., a 1KB file that expands to gigabytes)
+- **Invalid/Malicious Images**: Corrupted files, polyglot files (images hiding malicious payloads), or files designed to exploit image processing vulnerabilities
 
-# @slack-security-alerts @pagerduty-security""",
-#             "tags": [
-#                 "env:hackathon",
-#                 "service:tryonservice",
-#                 "team:security",
-#                 "detection_rule:multimodal_security",
-#                 "severity:critical",
-#                 "category:security"
-#             ],
-#             "options": {
-#                 "thresholds": {
-#                     "critical": 5,
-#                     "warning": 2
-#                 },
-#                 "notify_no_data": False,
-#                 "renotify_interval": 10,
-#                 "include_tags": True,
-#                 "require_full_window": False,
-#                 "new_host_delay": 0,
-#                 "evaluation_delay": 0
-#             },
-#             "priority": 1
-#         }
+### 🔒 Immediate Actions Required
+1. ⚠️ **BLOCK USER:** Consider immediately blocking user `{{user_id.name}}`
+2. Review uploaded file patterns for user `{{user_id.name}}` in APM traces
+3. Check if this user has other suspicious activity across services
+4. Preserve logs for security forensics
+5. Check server resource utilization (memory, CPU)
+
+### Security Runbook
+- Extract request details from Datadog APM traces for user `{{user_id.name}}`
+- Check user's session history for patterns of malicious behavior
+- If sustained attack: enable stricter file validation or temporary service protection mode
+- Notify security team if attack volume is high
+- Consider implementing CAPTCHA or additional verification for this user
+
+### Impact Assessment
+- Service availability may be degraded under attack
+- Memory exhaustion could crash pods
+- Potential for data exfiltration via polyglot files
+
+### 📊 View Attack Details
+[View Try-On Security Traces →](https://app.datadoghq.com/apm/traces?query=service%3Atryonservice%20%40user_id%3A{{user_id.name}})
+
+@incident-multimodal
+
+
+🚨 **INCIDENT CREATED** - Security team has been notified. Track attacker: `{{user_id.name}}`
+""",
+            "tags": [
+                "env:hackathon",
+                "service:tryonservice",
+                "team:security",
+                "detection_rule:multimodal_security",
+                "severity:critical",
+                "category:security",
+                "incident:auto-create"
+            ],
+            "options": {
+                "thresholds": {
+                    "critical": 3,
+                    "warning": 1
+                },
+                "notify_no_data": False,
+                "renotify_interval": 5,  # Re-alert every 5 mins during active attack
+                "include_tags": True,
+                "require_full_window": False,
+                "new_host_delay": 0,
+                "evaluation_delay": 0,
+                "notify_audit": True,  # Enable audit trail for incidents
+                "escalation_message": "🚨 ESCALATION: Attack from user {{user_id.name}} is still ongoing! Immediate action required."
+            },
+            "priority": 1
+        }
     ]
 
 

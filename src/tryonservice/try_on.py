@@ -45,11 +45,13 @@ import warnings
 from PIL import Image as PILImage
 warnings.filterwarnings('error', category=PILImage.DecompressionBombWarning) 
 
-def emit_tryon_metrics(inference_duration_ms: float, category: str, success: bool = True, error_type: str = None):
+def emit_tryon_metrics(inference_duration_ms: float, category: str, success: bool = True, error_type: str = None, user_id: str = None):
     """Emit custom try-on service metrics to Datadog"""
     tags = [f"category:{category}", f"success:{str(success).lower()}", "service:tryonservice", "env:hackathon"]
     if error_type:
         tags.append(f"error_type:{error_type}")
+    if user_id:
+        tags.append(f"user_id:{user_id}")
     
     # Emit Proper Metrics (queryable via Metrics API)
     statsd.increment("tryon.request.count", tags=tags)
@@ -63,7 +65,7 @@ def emit_tryon_metrics(inference_duration_ms: float, category: str, success: boo
         if error_type:
             metric_name = f"tryon.security.{error_type}"
             statsd.increment(metric_name, tags=tags)
-            logger.info(f"[METRIC] statsd.increment('{metric_name}', value=1) tags={tags}")
+            logger.info(f"[METRIC] statsd.increment('{metric_name}', value=1) tags={tags} user_id={user_id}")
 
     # Span tags (for APM traces)
     span = tracer.current_span()
@@ -194,9 +196,14 @@ def healthz():
 async def tryon(
     base_image: UploadFile = File(...), 
     product_image: UploadFile = File(...),
-    category: str = Form("fashion")
+    category: str = Form("fashion"),
+    user_id: str = Form(None)  # Optional user_id for tracking security attacks
 ):
     start_time = time.time()
+    # Generate a default user_id if not provided (for attack tracking)
+    if not user_id:
+        user_id = f"anonymous-{int(time.time())}"
+    
     try:
         base_bytes = await base_image.read()
         product_bytes = await product_image.read()
@@ -208,7 +215,8 @@ async def tryon(
         
         if person_err or prod_err:
             err_type = person_err or prod_err
-            emit_tryon_metrics(0, category, success=False, error_type=err_type)
+            logger.warning(f"SECURITY: Potential attack detected! user_id={user_id} error_type={err_type}")
+            emit_tryon_metrics(0, category, success=False, error_type=err_type, user_id=user_id)
             raise HTTPException(status_code=400, detail=f"Image processing failed: {err_type}")
 
         # Get the appropriate prompt based on category
@@ -225,7 +233,7 @@ async def tryon(
         except Exception as ge:
             # Log full traceback server-side
             logger.error("[tryon] generate_content failed:\n" + traceback.format_exc())
-            emit_tryon_metrics(inference_duration_ms=0, category=category, success=False)
+            emit_tryon_metrics(inference_duration_ms=0, category=category, success=False, user_id=user_id)
             # Surface a useful error message
             raise HTTPException(status_code=502, detail=f"Generation call failed: {str(ge)}")
 
@@ -249,11 +257,11 @@ async def tryon(
         if not img_bytes:
             # Try to include additional info if available
             details = getattr(resp, "text", None) or str(getattr(resp, "prompt_feedback", "No image generated"))
-            emit_tryon_metrics(inference_duration_ms=inference_duration, category=category, success=False)
+            emit_tryon_metrics(inference_duration_ms=inference_duration, category=category, success=False, user_id=user_id)
             raise HTTPException(status_code=502, detail=f"No image generated: {details}")
 
         # Emit successful metrics
-        emit_tryon_metrics(inference_duration_ms=inference_duration, category=category, success=True)
+        emit_tryon_metrics(inference_duration_ms=inference_duration, category=category, success=True, user_id=user_id)
         logger.info(f"Try-on completed successfully for category '{category}' in {inference_duration:.2f}ms")
 
         return Response(content=img_bytes, media_type="image/png")
