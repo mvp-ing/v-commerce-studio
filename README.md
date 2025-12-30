@@ -1,483 +1,278 @@
-# v-commerce
+# V-Commerce Studio
 
-A cloud-native microservices demo application showcasing modern e-commerce patterns with AI-powered features, built for Kubernetes and cloud-native environments. **Fully instrumented with Datadog for comprehensive observability, LLM monitoring, and production-ready monitoring capabilities.**
+A cloud-native microservices demo application showcasing modern e-commerce patterns with **AI-powered features** and **comprehensive LLM Observability**, built for Kubernetes and cloud-native environments.
 
-## 🎯 Purpose
+**🏆 Built for AI Partner Catalyst Hackathon**
 
-v-commerce is designed to demonstrate:
+[![Datadog](https://img.shields.io/badge/Datadog-632CA6?style=for-the-badge&logo=datadog&logoColor=white)](https://www.datadoghq.com/)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Google Gemini](https://img.shields.io/badge/Google%20Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)](https://ai.google.dev/)
 
-- **Microservices architecture patterns** - Distributed system design with multiple services
-- **Kubernetes deployments and orchestration** - Production-ready containerized applications
-- **Cloud-native application development** - Best practices for modern distributed systems
-- **Datadog Observability** - **Full-stack observability with APM, LLM monitoring, custom metrics, dashboards, and automated incident management**
-- **AI/LLM integration** - Multiple AI-powered services using Gemini models with specialized Datadog LLM observability
+---
 
-The application is accessible and useful to all Kubernetes users, from beginners to experienced practitioners.
+## 🎯 What Makes This Special
+
+V-Commerce isn't just another microservices demo—it's a **fully AI-native e-commerce platform** where every customer interaction touches AI:
+
+| Feature | AI Service | What It Does |
+|---------|------------|--------------|
+| 💬 **Chat Shopping** | Chatbot Service | Natural language product search and recommendations |
+| 👗 **AI Stylist** | PEAU Agent | Proactive engagement with personalized suggestions |
+| 🪞 **Virtual Try-On** | Try-On Service | AI-generated product visualizations on user photos |
+| 🎬 **Product Videos** | Video Generation | AI-generated marketing videos |
+
+**But building AI features is only half the battle—observing them is the other half.**
+
+This project demonstrates a **production-grade LLM observability strategy** with:
+- 🔐 **Attacker attribution** (not just detection)
+- 📊 **Business metrics** as observability signals
+- 🤖 **AI observing AI** (predictive failure detection)
+- 🖼️ **Multimodal security** monitoring
+
+---
 
 ## 🏗️ Architecture
 
-v-commerce is built as a collection of microservices, each responsible for a specific domain:
+![V-Commerce Architecture](docs/img/architecture-diagram.png)
 
-- **Frontend** (Go) - Web UI and API gateway
-- **Backend Services** - Multiple gRPC services handling business logic
-- **AI Services** - LLM-powered features for enhanced user experience
-- **Infrastructure** - Kubernetes-native deployment with Helm and Kustomize
+<details>
+<summary><b>📋 Core Services</b></summary>
 
-### Core Services
+| Service | Language | Description |
+|---------|----------|-------------|
+| **Frontend** | Go | Web frontend serving the user interface |
+| **Product Catalog** | Go | Manages product inventory and search |
+| **Cart** | Python | Shopping cart management |
+| **Checkout** | Go | Orchestrates the checkout process |
+| **Shipping** | Go | Handles shipping quotes and order shipments |
+| **Payment** | Node.js | Processes payment transactions |
+| **Currency** | Node.js | Currency conversion service |
+| **Email** | Python | Sends order confirmation emails |
+| **Ad** | Python | Contextual advertisement service |
+| **Recommendation** | Python | Product recommendation engine |
 
-| Service             | Language | Description                                         |
-| ------------------- | -------- | --------------------------------------------------- |
-| **Frontend**        | Go       | Web frontend serving the user interface             |
-| **Product Catalog** | Go       | Manages product inventory and search                |
-| **Cart**            | Python   | Shopping cart management with Redis/AlloyDB/Spanner |
-| **Checkout**        | Go       | Orchestrates the checkout process                   |
-| **Shipping**        | Go       | Handles shipping quotes and order shipments         |
-| **Payment**         | Node.js  | Processes payment transactions                      |
-| **Currency**        | Node.js  | Currency conversion service                         |
-| **Email**           | Python   | Sends order confirmation emails                     |
-| **Ad**              | Python   | Contextual advertisement service                    |
-| **Recommendation**  | Python   | Product recommendation engine                       |
+</details>
 
-### AI-Powered Services
+<details>
+<summary><b>🤖 AI-Powered Services</b></summary>
 
-| Service                | Language | Description                                                |
-| ---------------------- | -------- | ---------------------------------------------------------- |
-| **Chatbot**            | Python   | AI-powered customer support chatbot with RAG               |
-| **Shopping Assistant** | Python   | Multimodal LLM service for interior design recommendations |
-| **PEAU Agent**         | Python   | AI agent for product exploration and assistance            |
-| **Try-On**             | Python   | Virtual try-on service for products                        |
-| **Video Generation**   | Python   | AI-generated product videos                                |
-| **MCP Service**        | Python   | Model Context Protocol service                             |
+| Service | Language | Model | Description |
+|---------|----------|-------|-------------|
+| **Chatbot** | Python | Gemini 2.0 Flash | AI shopping assistant with RAG |
+| **PEAU Agent** | Python | Gemini 2.0 Flash | Proactive engagement AI stylist |
+| **Try-On** | Python | Gemini 2.0 Flash | Virtual product try-on with image generation |
+| **Video Generation** | Python | Veo | AI-generated product videos |
+| **Observability Insights** | Python | Gemini | AI-powered metric analysis and failure prediction |
 
-### Supporting Components
+</details>
 
-- **Load Generator** - Locust-based traffic simulation tool
-- **OpenTelemetry Collector** - Telemetry aggregation and export to Datadog
-- **Datadog Agent** - Infrastructure and application monitoring (agentless mode supported)
-- **Datadog Observability Stack** - Complete observability pipeline with traces, metrics, logs, and LLM-specific monitoring
+<details>
+<summary><b>📡 Observability Stack</b></summary>
+
+| Component | Purpose |
+|-----------|---------|
+| **Datadog Agent** | Infrastructure and application monitoring |
+| **DogStatsD** | Custom metrics emission |
+| **APM Traces** | Distributed tracing across all services |
+| **LLM Observability** | Token usage, costs, and quality tracking |
+| **Custom Monitors** | 5 detection rules for AI-specific issues |
+| **Incident Management** | Auto-created incidents with attacker attribution |
+
+</details>
+
+---
+
+## 🔍 LLM Observability Strategy
+
+> **Read the full strategy:** [docs/DETECTION_RULES.md](docs/DETECTION_RULES.md)
+
+### The Challenge
+
+Traditional monitoring asks: *"Is the service up?"*
+
+For AI applications, we need to ask:
+- *"Is the AI actually helping users buy things?"*
+- *"Who is attacking us, not just what attacks are happening?"*
+- *"Will we fail in 2 hours based on current patterns?"*
+
+### Our 5 Detection Rules
+
+| # | Rule | Metric | Innovation |
+|---|------|--------|------------|
+| 1 | **Prompt Injection** | `llm.security.injection_attempt_score by {session_id}` | Tracks attackers by session, auto-creates incidents |
+| 2 | **Interactions-Per-Conversion** | `llm.cost_per_conversion` | Business outcome metric, not just uptime |
+| 3 | **Quality Degradation** | `llm.response.quality_score` | Catches gradual decay before users complain |
+| 4 | **Predictive Capacity** | `llm.prediction.error_probability` | AI predicts failures 2 hours in advance |
+| 5 | **Multimodal Security** | `tryon.security.* by {user_id}` | Tracks image-based attackers by user ID |
+
+### Incident Auto-Creation
+
+Two monitors automatically create incidents with **attacker identification**:
+
+| Monitor | Attacker Tracking | Incident Handle |
+|---------|-------------------|-----------------|
+| Prompt Injection | `{{session_id.name}}` | `@incident-prompt-injection` |
+| Multimodal Attack | `{{user_id.name}}` | `@incident-multimodal` |
+
+> **Runbooks:** [docs/RUNBOOKS.md](docs/RUNBOOKS.md)
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop) or [Minikube](https://minikube.sigs.k8s.io/) or [Kind](https://kind.sigs.k8s.io/)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Skaffold 2.0.2+](https://skaffold.dev/docs/install/)
-- **Datadog Account** (optional but recommended) - For full observability features. Get your [DD_API_KEY](https://app.datadoghq.com/organization-settings/api-keys) and configure `DD_SITE`.
+- Docker Desktop, Minikube, or Kind
+- kubectl
+- Skaffold 2.0.2+
+- Datadog Account ([sign up free](https://www.datadoghq.com/))
 
-### Local Development
-
-1. **Clone the repository**
-
-   ```bash
-   git clone <your-repo-url>
-   cd v-commerce/
-   ```
-
-2. **Start a local Kubernetes cluster**
-
-   **Option A: Minikube**
-
-   ```bash
-   minikube start --cpus=4 --memory 4096 --disk-size 32g
-   ```
-
-   **Option B: Docker Desktop**
-
-   - Enable Kubernetes in Preferences
-   - Set CPUs to at least 3, Memory to at least 6.0 GiB
-   - Set disk space to at least 32 GB
-
-   **Option C: Kind**
-
-   ```bash
-   kind create cluster
-   ```
-
-3. **Deploy the application**
-
-   ```bash
-   skaffold run
-   ```
-
-   ⏱️ First deployment takes ~20 minutes (builds all Docker images)
-
-4. **Port forward to access the frontend**
-
-   ```bash
-   kubectl port-forward deployment/frontend 8080:8080
-   ```
-
-5. **Access the application**
-   - Open your browser to `http://localhost:8080`
-
-### Enable Datadog Observability (Recommended)
-
-To enable full observability with Datadog:
-
-1. **Get your Datadog credentials:**
-
-   - Sign up at [datadoghq.com](https://www.datadoghq.com/) (free trial available)
-   - Get your API key from [Organization Settings](https://app.datadoghq.com/organization-settings/api-keys)
-   - Note your Datadog site (e.g., `datadoghq.com`, `us3.datadoghq.com`, `us5.datadoghq.com`)
-
-2. **Configure environment variables:**
-
-   ```bash
-   cp docs/env.datadog.example .env.datadog
-   # Edit .env.datadog and add:
-   # DD_API_KEY=your_api_key_here
-   # DD_SITE=datadoghq.com
-   ```
-
-3. **Deploy with Datadog integration:**
-
-   - The application is pre-instrumented with Datadog tracing
-   - Services automatically send telemetry to Datadog when credentials are configured
-   - View traces, metrics, and logs in your Datadog dashboard
-
-4. **Generate traffic and view observability:**
-   ```bash
-   source .env.datadog
-   python3 scripts/traffic-generator.py --base-url http://localhost:8080
-   ```
-   Then check your Datadog dashboard for real-time traces, metrics, and LLM observability data.
-
-### Development Mode
-
-For automatic rebuilds during development:
+### Deploy
 
 ```bash
-skaffold dev
+# Clone the repository
+git clone https://github.com/mvp-ing/v-commerce-studio.git
+cd v-commerce-studio
+
+# Start local Kubernetes cluster
+minikube start --cpus=4 --memory 4096 --disk-size 32g
+
+# Deploy all services
+skaffold run
+
+# Port forward to access frontend
+kubectl port-forward deployment/frontend 8080:8080
 ```
 
-### Cleanup
+Open http://localhost:8080
 
-Remove all deployed resources:
-
-```bash
-skaffold delete
-```
-
-## 📦 Deployment Options
-
-v-commerce supports multiple deployment methods:
-
-### 1. Skaffold (Development)
-
-Best for local development and testing. See [Development Guide](docs/development-guide.md).
-
-### 2. Helm Chart
-
-Production-ready Helm chart for Kubernetes deployments:
+### Enable Datadog Observability
 
 ```bash
-helm install v-commerce ./helm-chart
-```
-
-See [Helm Chart README](helm-chart/README.md) for details.
-
-### 3. Kustomize
-
-Flexible configuration management with Kustomize components:
-
-```bash
-kubectl apply -k kustomize/base
-```
-
-See [Kustomize README](kustomize/README.md) for available components.
-
-### 4. Kubernetes Manifests
-
-Direct Kubernetes YAML manifests:
-
-```bash
-kubectl apply -f kubernetes-manifests/
-```
-
-### 5. Terraform
-
-Infrastructure as Code for GCP deployments:
-
-```bash
-cd terraform/
-terraform init
-terraform apply
-```
-
-See [Terraform README](terraform/README.md) for details.
-
-## 🔍 Datadog Observability
-
-**v-commerce is fully instrumented with Datadog** for production-grade observability, making it an ideal platform for learning and demonstrating modern observability practices.
-
-### Why Datadog?
-
-v-commerce leverages Datadog's comprehensive observability platform to provide:
-
-- **Unified Observability** - Traces, metrics, logs, and LLM data in one platform
-- **Zero-Instrumentation Overhead** - Automatic instrumentation with minimal code changes
-- **LLM-Specific Monitoring** - Specialized tracking for AI/LLM services
-- **Production-Ready** - Enterprise-grade monitoring suitable for real-world deployments
-
-### Core Observability Features
-
-#### 📊 Distributed Tracing
-
-- **End-to-end request tracing** across all microservices (Go, Python, Node.js)
-- **Service dependency mapping** - Visualize how services interact
-- **Performance insights** - Identify bottlenecks and slow requests
-- **Error tracking** - Automatic error detection and alerting
-
-#### 🤖 LLM Observability
-
-v-commerce includes **specialized Datadog LLM observability** for AI-powered services:
-
-- **Token usage tracking** - Monitor input/output tokens per request
-- **Cost monitoring** - Track LLM API costs per service and operation
-- **Latency metrics** - Measure LLM response times
-- **Quality metrics** - Track response quality and user satisfaction
-- **Model performance** - Compare different LLM models and configurations
-
-#### 📈 Custom Metrics & Dashboards
-
-- **Business metrics** - Orders, cart additions, checkout conversions
-- **Technical metrics** - Request rates, error rates, latency percentiles
-- **Pre-configured dashboards** - Ready-to-use Datadog dashboards for:
-  - Service health overview
-  - LLM performance and costs
-  - AI insights and recommendations
-  - Infrastructure metrics
-
-#### 🚨 Automated Detection Rules
-
-Four specialized detection rules automatically identify issues:
-
-1. **Prompt Injection Detection** - Identifies adversarial prompts attempting to manipulate AI services
-2. **Interactions-Per-Conversion Anomaly** - Alerts when too many AI chat interactions are needed per cart conversion
-3. **Response Quality Degradation** - Monitors for declining response quality over time
-4. **Predictive Capacity Alert** - Warns of sustained high load that may impact capacity
-
-#### 🎯 SLOs & Incident Management
-
-- **Service Level Objectives** - Define and track SLOs for critical services
-- **Automated incident management** - Datadog automatically creates incidents from alerts
-- **Runbooks integration** - Link operational runbooks to incidents
-- **On-call management** - Integrate with PagerDuty, Slack, and other tools
-
-### Instrumentation Details
-
-#### Service Instrumentation
-
-**Python Services** (Chatbot, Shopping Assistant, PEAU Agent, Cart, Email, Ad, Recommendation, Try-On, Video Generation, MCP Service):
-
-- Instrumented with `ddtrace` library
-- Automatic tracing of Flask/gRPC requests
-- Custom LLM spans for Gemini API calls
-- Custom metrics for token usage and costs
-
-**Go Services** (Frontend, Product Catalog, Checkout, Shipping):
-
-- Instrumented with OpenTelemetry (OTLP)
-- Automatic gRPC and HTTP tracing
-- Metrics exported to Datadog via OTLP collector
-
-**Node.js Services** (Payment, Currency):
-
-- Instrumented with `dd-trace-js`
-- Automatic HTTP/gRPC tracing
-- Custom business metrics
-
-### Setup Instructions
-
-#### 1. Get Datadog Credentials
-
-1. Sign up for a [Datadog account](https://www.datadoghq.com/) (free 14-day trial)
-2. Navigate to [Organization Settings > API Keys](https://app.datadoghq.com/organization-settings/api-keys)
-3. Create a new API key or use an existing one
-4. Note your Datadog site (check the URL: `app.datadoghq.com` = `datadoghq.com`, `us3.datadoghq.com` = `us3.datadoghq.com`, etc.)
-
-#### 2. Configure Environment Variables
-
-```bash
+# Configure Datadog credentials
 cp docs/env.datadog.example .env.datadog
-```
+# Edit .env.datadog with your DD_API_KEY and DD_SITE
 
-Edit `.env.datadog`:
-
-```bash
-export DD_API_KEY=your_api_key_here
-export DD_SITE=datadoghq.com  # or us3.datadoghq.com, us5.datadoghq.com, etc.
-```
-
-#### 3. Deploy with Datadog
-
-The application is pre-configured to send telemetry to Datadog when credentials are available. Services automatically detect Datadog environment variables and start sending traces, metrics, and logs.
-
-**For Kubernetes deployments:**
-
-- Services use environment variables from secrets
-- OpenTelemetry Collector aggregates and forwards telemetry to Datadog
-- Datadog Agent (optional) provides infrastructure metrics
-
-**Agentless Mode:**
-
-- v-commerce supports Datadog's agentless mode
-- Services send telemetry directly to Datadog APIs
-- No Datadog Agent required in your cluster
-
-#### 4. View Observability Data
-
-1. **Access Datadog Dashboard:**
-
-   - Go to [app.datadoghq.com](https://app.datadoghq.com/)
-   - Navigate to **APM > Services** to see all instrumented services
-   - Check **Dashboards** for pre-configured v-commerce dashboards
-
-2. **Generate Traffic:**
-
-   ```bash
-   source .env.datadog
-   python3 scripts/traffic-generator.py --base-url http://localhost:8080
-   ```
-
-3. **Explore Observability:**
-   - **Traces**: APM > Traces - See end-to-end request flows
-   - **Services**: APM > Services - Service health and performance
-   - **LLM Observability**: Navigate to LLM-specific views for AI service metrics
-   - **Dashboards**: Custom dashboards showing business and technical metrics
-   - **Monitors**: Detection rules and alerts
-
-### Datadog Configuration Files
-
-v-commerce includes pre-configured Datadog resources:
-
-- **`datadog-exports/dashboards/`** - Pre-built Datadog dashboards
-- **`datadog-exports/detection-rules.json`** - LLM detection rule configurations
-- **`datadog-exports/incident-rules.json`** - Incident management rules
-- **`datadog-exports/created-slos.json`** - Service level objectives
-
-Import these into your Datadog account using the provided scripts:
-
-```bash
+# Deploy Datadog dashboards and monitors
+source .env.datadog
 python3 scripts/create-datadog-dashboard.py
 python3 scripts/create-datadog-monitors.py
-python3 scripts/create-datadog-slos.py
 ```
 
-### Advanced Features
+---
 
-- **Custom Metrics** - Services emit custom business metrics (orders, cart size, etc.)
-- **Log Correlation** - Logs automatically correlated with traces
-- **Error Tracking** - Automatic error detection and grouping
-- **Profiling** - Continuous profiling for performance optimization (optional)
-- **Synthetic Monitoring** - End-to-end testing from Datadog (optional)
+## 🧪 Testing Detection Rules
 
-### Learn More
+### Generate Traffic
 
-- See the [detailed implementation plan](.cursor/plans/datadog_llm_observability_hackathon_e7fcc76b.plan.md) for technical details
-- [Datadog APM Documentation](https://docs.datadoghq.com/tracing/)
-- [Datadog LLM Observability](https://docs.datadoghq.com/llm_observability/)
-- [Datadog Kubernetes Integration](https://docs.datadoghq.com/agent/kubernetes/)
+```bash
+# Normal traffic
+python3 scripts/traffic-generator.py --base-url http://localhost:8080
+
+# Test prompt injection detection (triggers incident)
+python3 scripts/traffic-generator.py --scenario prompt_injection
+
+# Test multimodal attack detection (triggers incident)
+kubectl port-forward svc/tryonservice 8082:8080
+python3 scripts/traffic-generator.py --scenario multimodal_attack --tryon-url http://localhost:8082
+```
+
+### What to Expect
+
+1. **Prompt Injection:** All attacks come from a single `session_id` → triggers incident with attacker ID
+2. **Multimodal Attack:** All attacks come from a single `user_id` → triggers incident with attacker ID
+3. **Datadog Dashboard:** See metrics populate in the LLM Observability Dashboard
+
+---
 
 ## 📁 Project Structure
 
 ```
-v-commerce/
-├── src/                    # Source code for all microservices
-│   ├── frontend/          # Go web frontend
-│   ├── chatbotservice/    # AI chatbot service
-│   ├── shoppingassistantservice/  # Shopping assistant
-│   └── ...                # Other services
-├── kubernetes-manifests/  # Kubernetes YAML manifests
-├── helm-chart/            # Helm chart for deployment
-├── kustomize/             # Kustomize configurations
-├── terraform/             # Infrastructure as Code
-├── scripts/               # Utility scripts
-│   ├── traffic-generator.py        # Generate traffic to trigger Datadog detection rules
-│   ├── create-datadog-dashboard.py  # Deploy Datadog dashboards
-│   ├── create-datadog-monitors.py   # Deploy Datadog monitors and detection rules
-│   └── create-datadog-slos.py       # Deploy Datadog SLOs
-├── docs/                  # Documentation
-├── protos/                # Protocol buffer definitions
-└── datadog-exports/       # Datadog configuration exports (dashboards, SLOs, detection rules)
+v-commerce-studio/
+├── src/                          # Microservices source code
+│   ├── frontend/                 # Go web frontend
+│   ├── chatbotservice/           # AI chatbot with RAG
+│   ├── peau_agent/               # AI stylist agent
+│   ├── tryonservice/             # Virtual try-on service
+│   └── ...                       # Other services
+├── scripts/
+│   ├── traffic-generator.py      # Generate traffic & test attacks
+│   ├── create-datadog-dashboard.py
+│   ├── create-datadog-monitors.py
+│   └── obs-agent-test-runner.py  # Test observability insights
+├── datadog-exports/
+│   ├── dashboards/               # Dashboard JSON exports
+│   ├── monitors/                 # Monitor JSON exports
+│   └── incident-rules.json       # Incident configuration
+├── docs/
+│   ├── DETECTION_RULES.md        # LLM observability strategy
+│   ├── RUNBOOKS.md               # Operational runbooks
+│   └── INCIDENT_MANAGEMENT.md    # Incident procedures
+└── kubernetes-manifests/         # K8s deployment files
 ```
+
+---
 
 ## 📚 Documentation
 
-- [Development Guide](docs/development-guide.md) - Building and running locally
-- [Services README](Services%20README.md) - Detailed service documentation
-- [Adding a New Microservice](docs/adding-new-microservice.md) - Extension guide
-- [Product Requirements](docs/product-requirements.md) - Project requirements
-- [Runbooks](docs/RUNBOOKS.md) - Operational runbooks
-- [Incident Management](docs/INCIDENT_MANAGEMENT.md) - Incident response procedures
+| Document | Description |
+|----------|-------------|
+| [Detection Rules Strategy](docs/DETECTION_RULES.md) | Our LLM observability philosophy and innovation |
+| [Runbooks](docs/RUNBOOKS.md) | Operational procedures for each detection rule |
+| [Incident Management](docs/INCIDENT_MANAGEMENT.md) | How incidents are auto-created and managed |
+| [Development Guide](docs/development-guide.md) | Building and running locally |
+
+---
 
 ## 🛠️ Technology Stack
 
-### Languages & Frameworks
+<details>
+<summary><b>Languages & Frameworks</b></summary>
 
-- **Go** - Frontend, Product Catalog, Checkout, Shipping services
+- **Go** - Frontend, Product Catalog, Checkout, Shipping
 - **Python** - Cart, Email, Ad, Recommendation, AI services
-- **Node.js** - Payment, Currency services
+- **Node.js** - Payment, Currency
 
-### Infrastructure
+</details>
+
+<details>
+<summary><b>AI/ML</b></summary>
+
+- **Google Gemini 2.0 Flash** - LLM for chatbot and agents
+- **Google Veo** - Video generation
+- **RAG** - Retrieval Augmented Generation with product corpus
+- **Pillow** - Image processing with security controls
+
+</details>
+
+<details>
+<summary><b>Observability (Datadog)</b></summary>
+
+- **Datadog APM** - Distributed tracing
+- **Datadog LLM Observability** - Token, cost, and quality tracking
+- **Datadog Monitors** - 5 custom detection rules
+- **Datadog Incidents** - Auto-created with attacker attribution
+- **DogStatsD** - Custom metrics emission
+- **ddtrace** - Python automatic instrumentation
+
+</details>
+
+<details>
+<summary><b>Infrastructure</b></summary>
 
 - **Kubernetes** - Container orchestration
 - **Docker** - Containerization
 - **gRPC** - Inter-service communication
-- **Protocol Buffers** - Service contracts
+- **Skaffold** - Local development and deployment
 
-### Observability (Powered by Datadog)
-
-- **Datadog APM** - Full distributed tracing across all services
-- **Datadog LLM Observability** - Specialized monitoring for AI/LLM services with token tracking, cost monitoring, and quality metrics
-- **Datadog Metrics** - Custom business and technical metrics with pre-configured dashboards
-- **Datadog Logs** - Centralized log aggregation with trace correlation
-- **Datadog Detection Rules** - Automated detection of prompt injection, cost anomalies, and quality issues
-- **Datadog SLOs & Incident Management** - Service level objectives and automated incident response
-- **OpenTelemetry** - Telemetry collection and export to Datadog
-- **ddtrace** - Python/Node.js automatic instrumentation
-- **OTLP** - Go service tracing via OpenTelemetry Protocol
-
-### AI/ML
-
-- **Google Gemini** - LLM models for AI services
-- **Vector Search** - AlloyDB for product embeddings
-- **RAG** - Retrieval Augmented Generation
-
-## 🎮 User Journey
-
-The default user journey demonstrates core e-commerce functionality:
-
-1. **Browse Products** - View the product catalog
-2. **Add to Cart** - Select items and add them to the cart
-3. **Checkout** - Complete the order with pre-populated form data
-4. **Order Confirmation** - Receive order confirmation
-
-## 🤝 Contributing
-
-v-commerce follows specific product requirements to maintain simplicity and accessibility:
-
-1. **Preserve the golden user journey** - Must run on a `kind` Kubernetes cluster
-2. **Preserve demo simplicity** - Keep the primary user journey straightforward
-3. **Preserve quickstart simplicity** - Don't add unnecessary complexity
-
-See [Product Requirements](docs/product-requirements.md) for details.
-
-## 📄 License
-
-See [LICENSE](LICENSE) file for details.
-
-## 🔗 Related Resources
-
-- [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [Skaffold Documentation](https://skaffold.dev/docs/)
-- **[Datadog Documentation](https://docs.datadoghq.com/)** - Comprehensive observability platform
-- **[Datadog APM](https://docs.datadoghq.com/tracing/)** - Distributed tracing guide
-- **[Datadog LLM Observability](https://docs.datadoghq.com/llm_observability/)** - AI/LLM monitoring
-- **[Datadog Kubernetes Integration](https://docs.datadoghq.com/agent/kubernetes/)** - K8s monitoring setup
-- [Google Cloud Run](https://cloud.google.com/run)
+</details>
 
 ---
 
-**Note**: v-commerce is designed to be cloud-agnostic and can run on any Kubernetes cluster, including local development environments like `kind`, `minikube`, or Docker Desktop.
+##  License
+
+See [LICENSE](LICENSE) file for details.
+
+---
+
+**Built with ❤️ for the AI Partner Catalyst Hackathon**

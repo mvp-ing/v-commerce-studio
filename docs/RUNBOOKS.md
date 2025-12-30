@@ -302,5 +302,5 @@ A user is repeatedly uploading malicious images to the Try-On service:
 
 ---
 
-_Last Updated: December 2024_  
-_Owner: LLM Platform Team_
+_Last Updated: December 2025_  
+_Owner: Rakesh Elango_
