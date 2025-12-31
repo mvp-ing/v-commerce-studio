@@ -60,8 +60,8 @@ This project demonstrates a **production-grade LLM observability strategy** with
 |---------|----------|-------|-------------|
 | **Chatbot** | Python | Gemini 2.0 Flash | AI shopping assistant with RAG |
 | **PEAU Agent** | Python | Gemini 2.0 Flash | Proactive engagement AI stylist |
-| **Try-On** | Python | Gemini 2.0 Flash | Virtual product try-on with image generation |
-| **Video Generation** | Python | Veo | AI-generated product videos |
+| **Try-On** | Python | Gemini 2.0 Flash Image | Virtual product try-on with image generation |
+| **Video Generation** | Python | Veo 3 | AI-generated product videos |
 | **Observability Insights** | Python | Gemini | AI-powered metric analysis and failure prediction |
 
 </details>
@@ -238,10 +238,15 @@ v-commerce-studio/
 <details>
 <summary><b>AI/ML</b></summary>
 
-- **Google Gemini 2.0 Flash** - LLM for chatbot and agents
-- **Google Veo** - Video generation
-- **RAG** - Retrieval Augmented Generation with product corpus
-- **Pillow** - Image processing with security controls
+**Models:**
+- **Gemini 2.0 Flash** - Chat and conversational AI (chatbot service)
+- **Gemini 2.0 Flash Image** - Virtual try-on feature with image generation
+- **Veo 3** - AI-generated product advertisements and marketing videos
+- **Vertex AI RAG Engine** - Retrieval Augmented Generation with product corpus
+
+**Agent Creation Libraries:**
+- **ADK (Agent Development Kit)** - Framework for building AI agents
+- **MCP (Model Context Protocol)** - Agent orchestration and communication
 
 </details>
 
