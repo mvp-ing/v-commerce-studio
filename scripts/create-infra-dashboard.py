@@ -34,9 +34,9 @@ import sys
 from typing import Dict, Any
 
 # Datadog API configuration
-DD_API_KEY = os.getenv("DD_API_KEY", "de8576d9b3ea8cd083ff20da7b3e7b1e")
-DD_APP_KEY = os.getenv("DD_APP_KEY", "60c7b84e3af1680a8862b72f88f5370817bfbec1")
-DD_SITE = os.getenv("DD_SITE", "us5.datadoghq.com")
+DD_API_KEY = os.getenv("DD_API_KEY")
+DD_APP_KEY = os.getenv("DD_APP_KEY")
+DD_SITE = os.getenv("DD_SITE")
 
 
 def get_headers() -> Dict[str, str]:
