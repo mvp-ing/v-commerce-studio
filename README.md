@@ -1,8 +1,9 @@
 # V-Commerce Studio
 
-A cloud-native microservices demo application showcasing modern e-commerce patterns with **AI-powered features** and **comprehensive LLM Observability**, built for Kubernetes and cloud-native environments.
+A cloud-native microservices demo application showcasing modern e-commerce patterns with **AI-powered features** and **comprehensive LLM Observability**, deployed on **Google Kubernetes Engine (GKE)** and built for production cloud-native environments.
 
-**🏆 Built for AI Partner Catalyst Hackathon**
+**🏆 Built for AI Partner Catalyst Hackathon**  
+**☁️ Live on GKE:** [vcommercestudio.xyz](https://vcommercestudio.xyz) (prefereably use Edge or Firefox to access the site if Chrome doesn't work)
 
 [![Datadog](https://img.shields.io/badge/Datadog-632CA6?style=for-the-badge&logo=datadog&logoColor=white)](https://www.datadoghq.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
@@ -19,7 +20,7 @@ V-Commerce isn't just another microservices demo—it's a **fully AI-native e-co
 | 💬 **Chat Shopping** | Chatbot Service | Natural language product search and recommendations |
 | 👗 **AI Stylist** | PEAU Agent | Proactive engagement with personalized suggestions |
 | 🪞 **Virtual Try-On** | Try-On Service | AI-generated product visualizations on user photos |
-| 🎬 **Product Videos** | Video Generation | AI-generated marketing videos |
+| 🎬 **Product Videos** | Video Generation | AI-generated marketing videos (try using vcommercestudio.xyz/admin) |
 
 **But building AI features is only half the battle—observing them is the other half.**
 
@@ -127,7 +128,7 @@ Two monitors automatically create incidents with **attacker identification**:
 - Skaffold 2.0.2+
 - Datadog Account ([sign up free](https://www.datadoghq.com/))
 
-### Deploy
+### Deploy Locally
 
 ```bash
 # Clone the repository
@@ -145,6 +146,49 @@ kubectl port-forward deployment/frontend 8080:8080
 ```
 
 Open http://localhost:8080
+
+### Deploy to Google Kubernetes Engine (GKE)
+
+```bash
+# Set your GCP project
+export PROJECT_ID=your-gcp-project
+export REGION=us-central1
+
+# Create GKE Autopilot cluster
+gcloud container clusters create-auto v-commerce-studio \
+  --region=${REGION} \
+  --project=${PROJECT_ID}
+
+# Get credentials
+gcloud container clusters get-credentials v-commerce-studio \
+  --region=${REGION} \
+  --project=${PROJECT_ID}
+
+# Create namespace
+kubectl create namespace v-commerce-studio
+kubectl config set-context --current --namespace=v-commerce-studio
+
+# Create secrets (replace with your actual API keys)
+# Try-On Service (virtual try-on feature)
+kubectl create secret generic tryonservice-secrets \
+  --from-literal=GEMINI_API_KEY='your-gemini-api-key'
+
+# Video Generation Service (AI-generated videos)
+kubectl create secret generic video-generation-secrets \
+  --from-literal=GEMINI_API_KEY='your-gemini-api-key'
+
+# GCP Service Account credentials (for Vertex AI services)
+# First, download your service account key from GCP Console as key.json
+kubectl create secret generic gcp-credentials \
+  --from-file=key.json=path/to/your/key.json
+
+# Deploy with Cloud Build
+skaffold run -p gcb \
+  --default-repo=${REGION}-docker.pkg.dev/${PROJECT_ID}/v-commerce-studio \
+  --namespace=v-commerce-studio
+```
+
+> **Note:** The application is currently running on GKE at [vcommercestudio.xyz](https://vcommercestudio.xyz)
 
 ### Enable Datadog Observability
 
@@ -265,10 +309,13 @@ v-commerce-studio/
 <details>
 <summary><b>Infrastructure</b></summary>
 
+- **Google Kubernetes Engine (GKE Autopilot)** - Production Kubernetes cluster
+- **Google Artifact Registry** - Container image storage
 - **Kubernetes** - Container orchestration
 - **Docker** - Containerization
 - **gRPC** - Inter-service communication
 - **Skaffold** - Local development and deployment
+- **Cloud Build** - CI/CD for GKE deployments
 
 </details>
 
