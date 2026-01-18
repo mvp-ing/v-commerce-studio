@@ -3,7 +3,7 @@
 A cloud-native microservices demo application showcasing modern e-commerce patterns with **AI-powered features** and **comprehensive LLM Observability**, deployed on **Google Kubernetes Engine (GKE)** and built for production cloud-native environments.
 
 **🏆 Built for AI Partner Catalyst Hackathon**  
-**☁️ Live on GKE:** [vcommercestudio.xyz](https://www.vcommercestudio.xyz) (prefereably use Edge or Firefox to access the site if Chrome doesn't work)
+**☁️ Live on GKE:** [vcommercestudio.xyz](http://www.vcommercestudio.xyz) (prefereably use Edge or Firefox to access the site if Chrome doesn't work)
 
 [![Datadog](https://img.shields.io/badge/Datadog-632CA6?style=for-the-badge&logo=datadog&logoColor=white)](https://www.datadoghq.com/)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)](https://kubernetes.io/)
